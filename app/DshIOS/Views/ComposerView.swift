@@ -54,6 +54,7 @@ struct ModelPicker: View {
         .sheet(isPresented: $searching) { ModelSearchSheet(model: model, context: context) }
         // MS-03: a provider's key or adapter changed; the catalog the menu shows follows.
         .onChange(of: app.revision("llm/adapters-updated", "settings/document-updated", "credentials/record-updated", "credentials/reference-updated"), perform: {
+            _ in
             Task { await context.loadCatalog(model) }
         })
     }
@@ -324,7 +325,7 @@ struct ComposerView: View {
         .onChange(of: showTray || showEditor || browsing != nil, perform: { open in
             if open { sheetUp.wrappedValue = true }
         })
-        .onChange(of: composer.focusRequest, perform: { focused = true })
+        .onChange(of: composer.focusRequest, perform: { _ in  focused = true })
         .onChange(of: focused, perform: { now in focusChanged(now) })
         // A picker closing gives the keyboard back when it was up before: typed into
         // (`/model`, `/file`) or reached from the tray while it was up.
@@ -337,9 +338,9 @@ struct ComposerView: View {
             }
         })
         // C-99 / C-110 / C-141: catalogs and the preference follow their engine events.
-        .onChange(of: app.revision("commands/change", "agent-preset/selected"), perform: { Task { await context.loadCommands(model) } })
-        .onChange(of: app.revision("permission-presets/catalog-changed"), perform: { Task { await context.loadPermissions(model) } })
-        .onChange(of: app.revision("settings/document-updated"), perform: { Task { await context.loadSettings(model) } })
+        .onChange(of: app.revision("commands/change", "agent-preset/selected"), perform: { _ in  Task { await context.loadCommands(model) } })
+        .onChange(of: app.revision("permission-presets/catalog-changed"), perform: { _ in  Task { await context.loadPermissions(model) } })
+        .onChange(of: app.revision("settings/document-updated"), perform: { _ in  Task { await context.loadSettings(model) } })
     }
 
     /// The `/` or `@` token being typed. It needs the keyboard: hiding it folds the panel.

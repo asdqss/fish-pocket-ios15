@@ -201,7 +201,7 @@ struct PluginsView: View {
     @ViewBuilder
     private var content: some View {
         if manager.status == .unavailable {
-            CompatUnavailable("无法管理插件", systemImage: "puzzlepiece.extension", description: Text("当前无法安装或启停插件。"))
+            CompatUnavailable.title("无法管理插件", systemImage: "puzzlepiece.extension", description: Text("当前无法安装或启停插件。"))
                 .pageBackground()
         } else if manager.marketEnabled {
             VStack(spacing: 0) {
@@ -501,7 +501,7 @@ struct PluginDetailView: View {
             if let package = manager.package(name) {
                 detail(package).confirmUninstall(package, isPresented: $confirmingUninstall) { uninstalled = true }
             } else {
-                CompatUnavailable("插件已移除", systemImage: "puzzlepiece.extension")
+                CompatUnavailable.title("插件已移除", systemImage: "puzzlepiece.extension")
             }
         }
         .navigationBarTitleDisplayMode(.inline)

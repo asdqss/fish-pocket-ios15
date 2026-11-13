@@ -231,7 +231,7 @@ struct CompatGeometryChange<T: Equatable>: ViewModifier {
                 let value = transform(proxy)
                 Color.clear
                     .onAppear { action(value) }
-                    .onChange(of: value, perform: { action($0) })
+                    .onChange(of: value, perform: { new in action(new) })
             }
         )
     }
@@ -308,8 +308,12 @@ extension View {
 extension View {
     /// 替 `.presentationBackground(_:)`（iOS 16.4）：
     /// 16.0 上没有这个修饰符，sheet 背景沿用系统默认。
+    /// 两个重载分别在 `ShapeStyle` 和 `View` 上，调用 `Palette.background`（一个 Color，
+    /// 两者都满足）时会歧义 —— 统一收敛成只接 `ShapeStyle`，`View` 版本改名。
     func compatPresentationBackground<S: ShapeStyle>(_ style: S) -> some View { self }
-    func compatPresentationBackground<V: View>(_ view: V) -> some View { self }
+
+    /// 替 `.presentationBackground(_:)` 传一个 View 的情况。
+    func compatPresentationBackgroundView<V: View>(_ view: V) -> some View { self }
 
     /// 替 `.presentationBackgroundInteraction(_:)`（iOS 16.4）。
     func compatPresentationBackgroundInteraction(_ interaction: PresentationBackgroundInteraction) -> some View { self }
@@ -540,11 +544,11 @@ enum CompatRegex15 {
 //
 // ⚠️ 不要在这里定义 `func onChange(of:_:)`。
 // 部署目标 16.0 时，系统的 `onChange(of:_:)`（iOS 17）已经在候选里，
-// 再叠加一个同签名的扩展会让**每一个** `.onChange(of: x, perform: { ... })` 变成
+// 再叠加一个同签名的扩展会让**每一个** `.onChange(of: x, perform: { _ in  ... })` 变成
 // "ambiguous use of 'onChange'"，编译器提示的解法是：
 //   "use an explicit argument label instead of a trailing closure
 //    to call 'onChange(of:perform:)'"
-// 也就是调用点写 `.onChange(of: x, perform: { ... })` —— 显式标签就唯一了。
+// 也就是调用点写 `.onChange(of: x, perform: { _ in  ... })` —— 显式标签就唯一了。
 //
 // 需要 `initial:` 语义的调用点走 Views/Compat15.swift 的 `compatChange`。
 

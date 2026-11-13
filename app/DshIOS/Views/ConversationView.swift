@@ -21,6 +21,8 @@ struct ConversationView: View {
     @State private var model: SessionModel?
     @State private var context = ComposerContext()
     @State private var workbenchOpen = false
+    /// `onChange(of:perform:)` 只给新值；判断「刚才那条是不是它」要自己记住上一个。
+    @State private var lastWaitingInteractionId: String?
     @State private var workbenchTab = WorkbenchTab.terminal
     /// The workbench browser's page, kept when the sheet closes.
     @State private var browser: BrowserModel?
@@ -316,10 +318,12 @@ struct ConversationView: View {
         .focusedSceneValue(\.workbenchCommands, WorkbenchCommands(available: !blank && bot == nil, toggle: toggleWorkbench, open: openWorkbench))
         // The sheet leaves the background live, so the composer keeps its focus and the
         // keyboard would stay over the sheet; an answer comes first.
-        .onChange(of: presentedInteractionId(model), perform: { _, id in if id != nil { dismissKeyboard() } })
+        .onChange(of: presentedInteractionId(model), perform: { id in if id != nil { dismissKeyboard() } })
         // An approval or question arriving: the one alert-like tap (as the web's warning tone).
-        .onChange(of: waitingInteraction(model)?.id, perform: { old, new in
-            if let new, new != old { Haptics.warning() }
+        // `perform:` 只给新值，要判断「变了」得自己记上一个。
+        .onChange(of: waitingInteraction(model)?.id, perform: { new in
+            if let new, new != lastWaitingInteractionId { Haptics.warning() }
+            lastWaitingInteractionId = new
         })
         .compatChange(of: pendingApprovalIds, initial: true) { ids in
             if ids.isEmpty { approvalBatch = [] } else { approvalBatch.formUnion(ids) }

@@ -28,6 +28,7 @@ struct ShellDialogs: ViewModifier {
         content
             // The text is in place before the alert reads it.
             .onChange(of: app.renameRequest?.id, perform: {
+                _ in
                 guard let request = app.renameRequest, case .session = request.target else { return }
                 title = request.initial
                 renaming = true

@@ -13,7 +13,7 @@ struct DshWatchApp: App {
                 .environment(model)
                 .onAppear { model.start() }
         }
-        .onChange(of: scenePhase, perform: { _, phase in
+        .onChange(of: scenePhase, perform: { phase in
             if phase == .active { model.send(.refresh) }
         })
     }

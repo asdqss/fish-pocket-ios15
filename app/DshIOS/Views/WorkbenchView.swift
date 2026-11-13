@@ -411,7 +411,7 @@ private struct WorkbenchChanges: View {
         NavigationStack {
             Group {
                 if changes.isEmpty {
-                    CompatUnavailable("还没有改动", systemImage: "doc.text.magnifyingglass", description: Text("智能体改过的文件会显示在这里。"))
+                    CompatUnavailable.title("还没有改动", systemImage: "doc.text.magnifyingglass", description: Text("智能体改过的文件会显示在这里。"))
                 } else {
                     List {
                         Section {
@@ -490,7 +490,7 @@ private struct FileDiffPage: View {
                 // Each file starts at its top.
                 .id(path)
             } else {
-                CompatUnavailable("这个文件不在改动里了", systemImage: "doc.text.magnifyingglass")
+                CompatUnavailable.title("这个文件不在改动里了", systemImage: "doc.text.magnifyingglass")
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

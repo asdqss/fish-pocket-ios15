@@ -68,7 +68,7 @@ struct DirectoryView: View {
             if loading {
                 ProgressView()
             } else if entries.isEmpty && error == nil {
-                CompatUnavailable("空文件夹", systemImage: "folder")
+                CompatUnavailable.title("空文件夹", systemImage: "folder")
             } else if shown.isEmpty && error == nil {
                 CompatUnavailable.search(text: query)
             }
@@ -670,7 +670,7 @@ struct ZoomableImage: View {
             if let image {
                 ZoomingImageView(image: image).ignoresSafeArea(edges: .bottom)
             } else if failed {
-                CompatUnavailable("无法显示这张图片", systemImage: "photo")
+                CompatUnavailable.title("无法显示这张图片", systemImage: "photo")
             } else {
                 ProgressView()
             }
@@ -790,12 +790,12 @@ struct PDFPreview: View {
         Group {
             if let document {
                 if document.isLocked {
-                    CompatUnavailable("此 PDF 需要密码，暂不支持预览", systemImage: "lock.doc")
+                    CompatUnavailable.title("此 PDF 需要密码，暂不支持预览", systemImage: "lock.doc")
                 } else {
                     PDFKitView(document: document).ignoresSafeArea(edges: .bottom)
                 }
             } else if failed {
-                CompatUnavailable("无法显示 PDF", systemImage: "doc.richtext")
+                CompatUnavailable.title("无法显示 PDF", systemImage: "doc.richtext")
             } else {
                 ProgressView()
             }

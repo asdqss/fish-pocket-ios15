@@ -196,7 +196,7 @@ struct MainView: View {
             link = nil
             Task { await follow(request.link) }
         }
-        .onChange(of: workspaceId, perform: { WidgetSnapshotWriter.shared.refresh() })
+        .onChange(of: workspaceId, perform: { _ in  WidgetSnapshotWriter.shared.refresh() })
         // A window narrowed past the sidebar has no place beside it for the store.
         .onChange(of: sizeClass, perform: { size in
             if size != .regular, storeOpen {

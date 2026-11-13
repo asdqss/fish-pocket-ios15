@@ -372,7 +372,7 @@ struct BotMark: View {
             lastMood = new
             turned(from: old, to: new)
         })
-        .onChange(of: poke, perform: { act = Act(kind: .poke) })
+        .onChange(of: poke, perform: { _ in  act = Act(kind: .poke) })
         .task(id: act) { await finishAct() }
     }
 
@@ -489,7 +489,7 @@ struct BotPictureMotion: ViewModifier {
                 .offset(y: stance.dy * size / 100)
         }
         .onAppear { if mood == .alert { hopsFrom = .now } }
-        .onChange(of: mood, perform: { hopsFrom = mood == .alert ? .now : nil })
+        .onChange(of: mood, perform: { _ in  hopsFrom = mood == .alert ? .now : nil })
         .task(id: hopsFrom) {
             guard hopsFrom != nil else { return }
             try? await Task.sleep(nanoseconds: UInt64((1.1) * 1_000_000_000))

@@ -81,21 +81,36 @@ struct CompatUnavailable<LView: View, DView: View, AView: View>: View {
     }
 }
 
-extension CompatUnavailable where DView == EmptyView, AView == EmptyView {
-    /// `ContentUnavailableView("标题", systemImage: "icon")` 的等价物。
-    ///
-    /// 只保留**一个** init 并用 `String` 接字面量：原来同时有
-    /// `LocalizedStringKey` 和 `String` 两个重载时，`CompatUnavailable("字面量", ...)`
-    /// 会因两个候选都匹配而推断不出 `LView`（报 generic parameter 'LView' could not be inferred）。
-    init(_ title: String, systemImage: String) {
-        self.init(label: {
-            VStack(spacing: 8) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 40, weight: .light))
-                    .foregroundStyle(.secondary)
-                Text(title).font(.headline)
-            }
-        }, description: { EmptyView() }, actions: { EmptyView() })
+// `CompatUnavailable("标题", systemImage: "icon")` 这类调用**不能**用
+// extension 里的 `init` 实现：Swift 在解析 `CompatUnavailable(...)` 简写时，
+// 不会拿扩展 `where` 子句里的等式约束去反推主泛型的实参，
+// 结果就是 "generic parameter 'LView' could not be inferred"。
+//
+// 所以标题形态改用**静态工厂**：返回类型里三个泛型参数全是写死，
+// 名字不再是 `init`，也不会和闭包形态抢重载。
+
+extension CompatUnavailable where LView == CompatUnavailableLabel, DView == EmptyView, AView == EmptyView {
+    /// 替 `ContentUnavailableView("标题", systemImage: "icon")`。
+    static func title(_ title: String, systemImage: String) -> Self {
+        CompatUnavailable<CompatUnavailableLabel, EmptyView, EmptyView>(
+            label: { CompatUnavailableLabel(title: title, systemImage: systemImage) },
+            description: { EmptyView() },
+            actions: { EmptyView() })
+    }
+}
+
+/// 「图标 + 标题」这一段空态标签，单独成类型，好让 `LView` 有名字可推导。
+struct CompatUnavailableLabel: View {
+    let title: String
+    let systemImage: String
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.system(size: 40, weight: .light))
+                .foregroundStyle(.secondary)
+            Text(title).font(.headline)
+        }
     }
 }
 
@@ -172,9 +187,15 @@ struct CompatLabeledContent<Content: View>: View {
     private let title: Text
     private let content: Content
 
-    /// 只保留 `String` 一个入口：字面量会自动转成 String，
-    /// 同时存在 `LocalizedStringKey` 重载时会推断不出 `Content`。
-    init(_ title: String, @ViewBuilder content: () -> Content) {
+    /// 用 `StringProtocol` 接标题：字符串字面量、`String`、`Substring` 都能进，
+    /// 且只有一个候选，不会出现 `LocalizedStringKey` + `String` 双重重载的歧义。
+    init<S: StringProtocol>(_ title: S, @ViewBuilder content: () -> Content) {
+        self.title = Text(String(title))
+        self.content = content()
+    }
+
+    /// 标题本来就是 `LocalizedStringKey` 的调用点（要参与本地化查表）。
+    init(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) {
         self.title = Text(title)
         self.content = content()
     }
@@ -189,8 +210,28 @@ struct CompatLabeledContent<Content: View>: View {
 }
 
 extension CompatLabeledContent where Content == Text {
-    init(_ title: String, value: String) {
+    init<S: StringProtocol>(_ title: S, value: String) {
         self.init(title) { Text(value) }
+    }
+
+    init<S: StringProtocol>(_ title: S, value: String?) {
+        self.init(title) { Text(value ?? "—") }
+    }
+
+    init<S: StringProtocol, V: CustomStringConvertible>(_ title: S, value: V) {
+        self.init(title) { Text(value.description) }
+    }
+
+    init(_ title: LocalizedStringKey, value: String) {
+        self.init(title) { Text(value) }
+    }
+
+    init(_ title: LocalizedStringKey, value: String?) {
+        self.init(title) { Text(value ?? "—") }
+    }
+
+    init<V: CustomStringConvertible>(_ title: LocalizedStringKey, value: V) {
+        self.init(title) { Text(value.description) }
     }
 }
 
@@ -219,16 +260,14 @@ extension CompatUnavailable where DView == EmptyView, AView == EmptyView {
     }
 }
 
-extension CompatUnavailable where DView == Text, AView == EmptyView {
-    init(_ title: String, systemImage: String, description: Text) {
-        self.init(label: {
-            VStack(spacing: 8) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 40, weight: .light))
-                    .foregroundStyle(.secondary)
-                Text(title).font(.headline)
-            }
-        }, description: { description }, actions: { EmptyView() })
+extension CompatUnavailable where LView == CompatUnavailableLabel, DView == Text, AView == EmptyView {
+    /// 替 `ContentUnavailableView("标题", systemImage: "icon", description: Text(...))`。
+    /// 同 `title(_:systemImage:)`，用静态工厂而不是 init —— 见上文的说明。
+    static func title(_ title: String, systemImage: String, description: Text) -> Self {
+        CompatUnavailable<CompatUnavailableLabel, Text, EmptyView>(
+            label: { CompatUnavailableLabel(title: title, systemImage: systemImage) },
+            description: { description },
+            actions: { EmptyView() })
     }
 }
 

@@ -253,7 +253,7 @@ private struct StoreReadmePage: View {
                     MarkdownView(text: markdown).padding(20).readableWidth()
                 }
             } else if missing {
-                CompatUnavailable("没有说明文档", systemImage: "doc.text")
+                CompatUnavailable.title("没有说明文档", systemImage: "doc.text")
             } else if failed {
                 CompatUnavailable {
                     Label("无法读取说明文档", systemImage: "exclamationmark.triangle")

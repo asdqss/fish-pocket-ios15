@@ -302,7 +302,7 @@ struct ScheduleDetailView: View {
                 }
                 .pageBackground()
             } else if catalog.settled {
-                CompatUnavailable("任务已不可用，可能已被删除", systemImage: "clock")
+                CompatUnavailable.title("任务已不可用，可能已被删除", systemImage: "clock")
             } else {
                 ProgressView()
             }
@@ -342,7 +342,7 @@ struct ScheduleDetailView: View {
             Button("继续编辑", role: .cancel) {}
         }
         .onAppear(perform: sync)
-        .onChange(of: catalog.entry(taskId), perform: { _, _ in sync() })
+        .onChange(of: catalog.entry(taskId), perform: { _ in sync() })
         // The save button is at the top; the reason may be under the fold.
         .onChange(of: failure, perform: { failure in
             if failure != nil, let failureText { app.showToast(failureText, tone: .warning) }
@@ -681,7 +681,7 @@ private struct DeliveryHistoryView: View {
                         Button(failure.cursor ? "刷新" : "重试") { Task { await load(failure.before) } }
                     }
                 } else {
-                    CompatUnavailable("暂无任务运行记录", systemImage: "clock")
+                    CompatUnavailable.title("暂无任务运行记录", systemImage: "clock")
                 }
             }
         }

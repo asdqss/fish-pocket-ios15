@@ -168,7 +168,7 @@ struct RemoteChangesSheet: View {
         NavigationStack {
             Group {
                 if changes.isEmpty {
-                    CompatUnavailable("还没有改动", systemImage: "doc.text.magnifyingglass", description: Text("智能体改过的文件会显示在这里。"))
+                    CompatUnavailable.title("还没有改动", systemImage: "doc.text.magnifyingglass", description: Text("智能体改过的文件会显示在这里。"))
                 } else {
                     List {
                         Section {
@@ -281,7 +281,7 @@ private struct RemoteDirectoryPage: View {
         .overlay {
             if let entries {
                 if entries.isEmpty {
-                    CompatUnavailable("空文件夹", systemImage: "folder")
+                    CompatUnavailable.title("空文件夹", systemImage: "folder")
                 } else if shown.isEmpty {
                     CompatUnavailable.search(text: query)
                 }
@@ -375,7 +375,7 @@ private struct RemoteFilePage: View {
                     .padding(16)
                 }
             } else if let failure {
-                CompatUnavailable("打不开这个文件", systemImage: "doc.questionmark", description: Text(failure))
+                CompatUnavailable.title("打不开这个文件", systemImage: "doc.questionmark", description: Text(failure))
             } else {
                 ProgressView()
             }

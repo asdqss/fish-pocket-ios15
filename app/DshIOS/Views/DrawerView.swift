@@ -94,11 +94,11 @@ struct DrawerView: View {
             .navigationDestination(for: Route.self) { _ in archivedPage }
         }
         .task(id: search) { await searchRemote() }
-        .onChange(of: searchRequest, perform: { openSearch() })
+        .onChange(of: searchRequest, perform: { _ in  openSearch() })
         .fullScreenCover(isPresented: $searchOpen) { searchPage }
-        .onChange(of: groupBy, perform: { Haptics.select() })
-        .onChange(of: selection, perform: { revealSelection() })
-        .onChange(of: selectionRowGroupId, perform: { revealSelection() })
+        .onChange(of: groupBy, perform: { _ in  Haptics.select() })
+        .onChange(of: selection, perform: { _ in  revealSelection() })
+        .onChange(of: selectionRowGroupId, perform: { _ in  revealSelection() })
         .confirmationDialog("删除「\(removingWorkspace?.displayTitle ?? "")」？", isPresented: Binding(get: { removingWorkspace != nil }, set: { if !$0 { removingWorkspace = nil } }), titleVisibility: .visible) {
             Button("删除工作区", role: .destructive) {
                 if let workspace = removingWorkspace {
@@ -170,7 +170,7 @@ struct DrawerView: View {
         .compatPresentationBackground(.clear)
         .onAppear { withAnimation(.easeOut(duration: 0.2)) { searchShown = true } }
         // The field's own ✕ (取消 before iOS 26) is the way out.
-        .onChange(of: searchActive, perform: { if !searchActive { closeSearch() } })
+        .onChange(of: searchActive, perform: { _ in  if !searchActive { closeSearch() } })
     }
 
     private func openSearch() {

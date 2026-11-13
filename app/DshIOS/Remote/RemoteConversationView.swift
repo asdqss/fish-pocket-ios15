@@ -13,6 +13,8 @@ struct RemoteConversationView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var model: RemoteSessionModel?
     @State private var atBottom = true
+    /// `onChange(of:perform:)` 只给新值；「等它变了」要自己记住上一个。
+    @State private var lastWaitingId: String?
     @State private var timelineTop: CGFloat = 0
     @State private var detail: TimelineDetail?
     /// Requests swiped away; they stay answerable from the line above the composer.
@@ -137,9 +139,9 @@ struct RemoteConversationView: View {
                 detail = item
             }
         ))
-        .onChange(of: presented(model)?.id, perform: { _, id in if id != nil { dismissKeyboard() } })
-        .onChange(of: waiting(model)?.id, perform: { old, new in if let new, new != old { Haptics.warning() } })
-        .onChange(of: model.optionsRequest, perform: { panel = .options })
+        .onChange(of: presented(model)?.id, perform: { id in if id != nil { dismissKeyboard() } })
+        .onChange(of: waiting(model)?.id, perform: { new in if let new, new != lastWaitingId { Haptics.warning() }; lastWaitingId = new })
+        .onChange(of: model.optionsRequest, perform: { _ in  panel = .options })
         // Archived from here or from another device: the main view moves on, as with a local session.
         .onChange(of: model.meta?.archived, perform: { archived in if archived == true { selection = nil } })
         // Read once it is on screen, and again when a turn ends while it is.

@@ -139,7 +139,7 @@ private struct StoreDiscoverPage: View {
                     .font(.footnote)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .unavailable:
-                CompatUnavailable("无法管理插件", systemImage: "puzzlepiece.extension", description: Text("当前无法安装或启停插件。"))
+                CompatUnavailable.title("无法管理插件", systemImage: "puzzlepiece.extension", description: Text("当前无法安装或启停插件。"))
             case .off:
                 CompatUnavailable {
                     Label("插件市场已关闭", systemImage: "storefront")
@@ -154,8 +154,8 @@ private struct StoreDiscoverPage: View {
         }
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .sheet(item: $choice) { StoreInstallConfirm(choice: $0, marketTitle: localized(market.result?["title"] ?? .null)) }
-        .onChange(of: searchFocused, perform: { updateSearching() })
-        .onChange(of: search, perform: { updateSearching() })
+        .onChange(of: searchFocused, perform: { _ in  updateSearching() })
+        .onChange(of: search, perform: { _ in  updateSearching() })
         // Keystrokes settle for 250 ms before a read.
         .task(id: search) {
             guard search != market.query.text else { return }
