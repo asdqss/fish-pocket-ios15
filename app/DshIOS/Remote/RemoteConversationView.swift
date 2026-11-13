@@ -176,7 +176,7 @@ struct RemoteConversationView: View {
         .alert("出错了", isPresented: errorPresented) {
             Button("好", role: .cancel) {}
         } message: {
-            Text(model?.error ?? "")
+            Text(errorText)
         }
     }
 
@@ -187,6 +187,11 @@ struct RemoteConversationView: View {
             get: { model?.error != nil },
             set: { if !$0 { model?.error = nil } }
         )
+    }
+
+    /// 同理，`Text(model?.error ?? "")` 内联也会拖慢推断，先取值再进 ViewBuilder。
+    private var errorText: String {
+        model?.error ?? ""
     }
 
     private func takeoverMessage(_ enable: Bool, _ model: RemoteSessionModel) -> String {        guard enable else { return String(localized: "交还后这里只能查看，不能发消息。") }
