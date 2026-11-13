@@ -52,6 +52,13 @@ targets:
     scheme: {}
     sources:
       - path: DshIOS
+        # AppShortcuts.xcstrings 是 String Catalog 里的 App Intents 快捷指令文案，
+        # Xcode 在 deployment target < 17 时直接报错：
+        #   "AppShortcuts.xcstrings is only supported for iOS 17.0 and above,
+        #    use AppShortcuts.strings for previous versions"
+        # iOS 16 没有 App Intents / Siri 集成，这个文件对构建产物没有用处，排除掉。
+        excludes:
+          - AppShortcuts.xcstrings
       - path: Shared
       # What the phone sends the watch and what the watch sends back.
       - path: WatchShared
