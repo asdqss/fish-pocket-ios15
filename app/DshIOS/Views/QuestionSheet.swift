@@ -13,7 +13,7 @@ struct PinnedActionsSheet<Content: View, Actions: View>: View {
         ScrollView {
             content().onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
         }
-        .scrollBounceBehavior(.basedOnSize)
+        .compatScrollBounceBehavior(.basedOnSize)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             actions()
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { actionsHeight = $0 }
@@ -23,8 +23,8 @@ struct PinnedActionsSheet<Content: View, Actions: View>: View {
         .ignoresSafeArea(.container, edges: .bottom)
         .compatDetents([.height(contentHeight + actionsHeight)])
         .presentationDragIndicator(.visible)
-        .presentationBackground(Palette.background)
-        .presentationBackgroundInteraction(.enabled)
+        .compatPresentationBackground(Palette.background)
+        .compatPresentationBackgroundInteraction(.enabled)
     }
 }
 
@@ -54,8 +54,8 @@ struct QuestionSheet: View {
             footer(current).padding(EdgeInsets(top: 8, leading: 22, bottom: 10, trailing: 22))
         }
         .onAppear(perform: preselectRecommended)
-        .onChange(of: customFocused) { focused in model.setAnswerFocus(question, focused: focused) }
-        .onChange(of: question.eventId) { _ in failure = nil }
+        .onChange(of: customFocused, perform: { focused in model.setAnswerFocus(question, focused: focused) })
+        .onChange(of: question.eventId, perform: { _ in failure = nil })
     }
 
     // MARK: Pages

@@ -343,11 +343,11 @@ struct BotConnectorPage: View {
         .disabled(busy)
         .navigationTitle(ConnectorBrand.name(row))
         .navigationBarTitleDisplayMode(.inline)
-        .onChange(of: row["pending"]["url"].string) { url in
+        .onChange(of: row["pending"]["url"].string, perform: { url in
             // A browser sign-in: the page runs inside the app so the engine, which listens for
             // the redirect, keeps running.
             if let url = url.flatMap(URL.init(string:)) { InAppSafari.open(url) }
-        }
+        })
     }
 
     /// The service's face, what it gives a Bot, and where the connection stands.

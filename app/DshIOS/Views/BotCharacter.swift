@@ -367,12 +367,12 @@ struct BotMark: View {
         // iOS 17 的 `onChange(of:) { old, new in }` 在 16.0 上只有单参版本：
         // 自己记上一次的 mood，就能还原 old/new。
         .onAppear { lastMood = mood }
-        .onChange(of: mood) { new in
+        .onChange(of: mood, perform: { new in
             let old = lastMood
             lastMood = new
             turned(from: old, to: new)
-        }
-        .onChange(of: poke) { act = Act(kind: .poke) }
+        })
+        .onChange(of: poke, perform: { act = Act(kind: .poke) })
         .task(id: act) { await finishAct() }
     }
 
@@ -489,7 +489,7 @@ struct BotPictureMotion: ViewModifier {
                 .offset(y: stance.dy * size / 100)
         }
         .onAppear { if mood == .alert { hopsFrom = .now } }
-        .onChange(of: mood) { hopsFrom = mood == .alert ? .now : nil }
+        .onChange(of: mood, perform: { hopsFrom = mood == .alert ? .now : nil })
         .task(id: hopsFrom) {
             guard hopsFrom != nil else { return }
             try? await Task.sleep(nanoseconds: UInt64((1.1) * 1_000_000_000))

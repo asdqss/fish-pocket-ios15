@@ -27,11 +27,11 @@ struct ShellDialogs: ViewModifier {
     func body(content: Content) -> some View {
         content
             // The text is in place before the alert reads it.
-            .onChange(of: app.renameRequest?.id) {
+            .onChange(of: app.renameRequest?.id, perform: {
                 guard let request = app.renameRequest, case .session = request.target else { return }
                 title = request.initial
                 renaming = true
-            }
+            })
             .alert("重命名会话", isPresented: $renaming) {
                 TextField("会话名称", text: $title)
                 Button("取消", role: .cancel) { app.renameRequest = nil }

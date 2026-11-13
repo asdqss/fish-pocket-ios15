@@ -136,13 +136,13 @@ struct ConversationView: View {
             // Any drag on the timeline hides the keyboard (`.interactively` only does when the finger reaches it),
             // even when the timeline is too short to scroll; so does a tap outside the composer.
             .scrollDismissesKeyboard(.immediately)
-            .scrollBounceBehavior(.always)
+            .compatScrollBounceBehavior(.always)
             .simultaneousGesture(TapGesture().onEnded { dismissKeyboard() })
             // The bottom anchor only holds for the first layout; follow the user's own message and the start of a turn.
-            .onChange(of: model.items.last?.id) { _ in
+            .onChange(of: model.items.last?.id, perform: { _ in
                 if case .user? = model.items.last { atBottom = true; scrollToBottom(proxy) }
-            }
-            .onChange(of: model.running) { running in if running, atBottom { scrollToBottom(proxy) } }
+            })
+            .onChange(of: model.running, perform: { running in if running, atBottom { scrollToBottom(proxy) } })
             .overlay(alignment: .bottomTrailing) {
                 // Animated here, not on the scroll view: its rows must not animate with the buttons.
                 ZStack {
@@ -312,15 +312,15 @@ struct ConversationView: View {
                 // A pull over the terminal is meant for its scrollback; ✕ closes the sheet.
                 .interactiveDismissDisabled(workbenchTab == .terminal)
         }
-        .onChange(of: workbenchOpen) { open in if open, sizeClass == .regular { makeRoomForWorkbench() } }
+        .onChange(of: workbenchOpen, perform: { open in if open, sizeClass == .regular { makeRoomForWorkbench() } })
         .focusedSceneValue(\.workbenchCommands, WorkbenchCommands(available: !blank && bot == nil, toggle: toggleWorkbench, open: openWorkbench))
         // The sheet leaves the background live, so the composer keeps its focus and the
         // keyboard would stay over the sheet; an answer comes first.
-        .onChange(of: presentedInteractionId(model)) { _, id in if id != nil { dismissKeyboard() } }
+        .onChange(of: presentedInteractionId(model), perform: { _, id in if id != nil { dismissKeyboard() } })
         // An approval or question arriving: the one alert-like tap (as the web's warning tone).
-        .onChange(of: waitingInteraction(model)?.id) { old, new in
+        .onChange(of: waitingInteraction(model)?.id, perform: { old, new in
             if let new, new != old { Haptics.warning() }
-        }
+        })
         .compatChange(of: pendingApprovalIds, initial: true) { ids in
             if ids.isEmpty { approvalBatch = [] } else { approvalBatch.formUnion(ids) }
         }
@@ -473,7 +473,7 @@ struct ConversationView: View {
             }
             .padding(.horizontal, 4)
         }
-        .scrollClipDisabled()
+        .compatScrollClipDisabled()
     }
 
     private static var suggestions: [String] {
@@ -565,11 +565,11 @@ struct TimelineAnchor: ViewModifier {
     func body(content: Content) -> some View {
         if #available(iOS 18.0, *) {
             content
-                .defaultScrollAnchor(.bottom, for: .initialOffset)
-                .defaultScrollAnchor(.bottom, for: .sizeChanges)
-                .defaultScrollAnchor(.top, for: .alignment)
+                .compatDefaultScrollAnchor(.bottom, for: .initialOffset)
+                .compatDefaultScrollAnchor(.bottom, for: .sizeChanges)
+                .compatDefaultScrollAnchor(.top, for: .alignment)
         } else {
-            content.defaultScrollAnchor(.bottom)
+            content.compatDefaultScrollAnchor(.bottom)
         }
     }
 }
@@ -1408,8 +1408,8 @@ private struct CommandBlock: View {
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
             }
             .frame(height: min(height, limit))
-            .scrollBounceBehavior(.basedOnSize)
-            .scrollIndicatorsFlash(onAppear: true)
+            .compatScrollBounceBehavior(.basedOnSize)
+            .compatScrollIndicatorsFlash(onAppear: true)
             .background(Palette.field, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             if height > limit {
                 Text("内容较长，滑动查看全部").font(.caption).foregroundStyle(Palette.secondary)

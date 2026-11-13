@@ -575,7 +575,7 @@ private struct RemoteCommandBlock: View {
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
             }
             .frame(height: min(height, limit))
-            .scrollBounceBehavior(.basedOnSize)
+            .compatScrollBounceBehavior(.basedOnSize)
             .background(Palette.field, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             if height > limit {
                 Text("内容较长，滑动查看全部").font(.caption).foregroundStyle(Palette.secondary)

@@ -28,24 +28,24 @@ struct BotChatView: View {
             .openingOtherSessions($selection, from: bot.sessionId)
             .sheet(isPresented: $detailOpen, onDismiss: { detailTab = .profile }) { BotDetailView(botId: botId, tab: detailTab) }
             .sheet(isPresented: $sideChatOpen) { BotSideChatSheet(botId: botId) }
-            .onChange(of: team.memoryRequest) { request in
+            .onChange(of: team.memoryRequest, perform: { request in
                 guard request == botId else { return }
                 team.memoryRequest = nil
                 detailTab = .memory
                 detailOpen = true
-            }
-            .onChange(of: team.sideChatRequest) { request in
+            })
+            .onChange(of: team.sideChatRequest, perform: { request in
                 guard request == botId else { return }
                 team.sideChatRequest = nil
                 Task { try? await Task.sleep(nanoseconds: UInt64((350) * 1_000_000)); sideChatOpen = true }
-            }
-            .onChange(of: team.scheduleRequest) { request in
+            })
+            .onChange(of: team.scheduleRequest, perform: { request in
                 guard request == .bot(botId) else { return }
                 team.scheduleRequest = nil
                 detailTab = .schedules
                 // After the tray's sheet has gone.
                 Task { try? await Task.sleep(nanoseconds: UInt64((350) * 1_000_000)); detailOpen = true }
-            }
+            })
             .onAppear { app.clearUnread(bot.sessionId); team.visibleChat = bot.id }
             .onDisappear { app.clearUnread(bot.sessionId); if team.visibleChat == bot.id { team.visibleChat = nil } }
         } else if team.status == .unknown {

@@ -25,9 +25,9 @@ struct DshIOSApp: App {
                 .onAppear { engine.start() }
         }
         .commands { ShellCommands() }
-        .onChange(of: scenePhase) { phase in
+        .onChange(of: scenePhase, perform: { phase in
             scenePhaseChanged(phase)
-        }
+        })
 #else
         WindowGroup(id: Self.window, for: SessionWindow.self) { $window in
             RootView(session: window?.session)
@@ -35,14 +35,14 @@ struct DshIOSApp: App {
                 .onAppear { engine.start() }
         }
         .commands { ShellCommands() }
-        .onChange(of: scenePhase) { phase in
+        .onChange(of: scenePhase, perform: { phase in
             BackgroundKeeper.shared.scenePhaseChanged(to: phase)
 #if !DSH_IOS15_BACKPORT
             LiveActivityController.shared.scenePhaseChanged(to: phase)
 #endif  // !DSH_IOS15_BACKPORT
 
             WatchLink.shared.scenePhaseChanged(to: phase)
-        }
+        })
 #endif  // DSH_IOS15_BACKPORT
     }
 
@@ -203,7 +203,7 @@ private struct EngineTrouble: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
             }
-            .defaultScrollAnchor(.bottom)
+            .compatDefaultScrollAnchor(.bottom)
             .background(Palette.grouped, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
             HStack(spacing: 12) {

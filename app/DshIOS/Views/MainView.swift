@@ -132,17 +132,17 @@ struct MainView: View {
             if sizeClass == .regular { split } else { drawerLayout }
         }
         // The drawer and the new conversation page, which have no way to the store themselves.
-        .onChange(of: app.pluginStoreRequest) { token in
+        .onChange(of: app.pluginStoreRequest, perform: { token in
             guard token != nil, scenePhase != .background else { return }
             app.pluginStoreRequest = nil
             openPlugins()
-        }
-        .onChange(of: app.webRequest) { token in
+        })
+        .onChange(of: app.webRequest, perform: { token in
             guard token != nil, scenePhase != .background else { return }
             app.webRequest = nil
             webOpen = true
-        }
-        .onChange(of: app.botTeam.openRequest?.token) { token in
+        })
+        .onChange(of: app.botTeam.openRequest?.token, perform: { token in
             guard token != nil, let request = app.botTeam.openRequest else { return }
             app.botTeam.openRequest = nil
             sheet = nil
@@ -150,21 +150,21 @@ struct MainView: View {
             botOpen = true
             botPath = request.route.map { route in request.push && botPath.last != route ? botPath + [route] : [route] } ?? []
             setDrawer(false)
-        }
+        })
         // The sidebar's own row; the page is also still under Settings.
-        .onChange(of: app.nativeCapabilitiesRequest) { token in
+        .onChange(of: app.nativeCapabilitiesRequest, perform: { token in
             guard token != nil, scenePhase != .background else { return }
             app.nativeCapabilitiesRequest = nil
             sheet = .capabilities
-        }
-        .onChange(of: app.remoteRequest) { token in
+        })
+        .onChange(of: app.remoteRequest, perform: { token in
             guard token != nil, scenePhase != .background else { return }
             app.remoteRequest = nil
             setDrawer(false)
             sheet = .remote
-        }
+        })
         // Asked for from the sidebar, a conversation or a page inside a sheet: that sheet goes first.
-        .onChange(of: app.remoteSessionRequest) { request in
+        .onChange(of: app.remoteSessionRequest, perform: { request in
             guard let request, scenePhase != .background else { return }
             app.remoteSessionRequest = nil
             setDrawer(false)
@@ -174,21 +174,21 @@ struct MainView: View {
                 if wait { try? await Task.sleep(nanoseconds: UInt64((450) * 1_000_000)) }
                 remoteTarget = request
             }
-        }
+        })
         .sheet(item: $remoteTarget) { RemoteNewSessionSheet(target: $0).sheetNotices() }
         // Signed out of remote control (or the server ended it): its conversation has nothing to show.
-        .onChange(of: app.remote.signedIn) { signedIn in
+        .onChange(of: app.remote.signedIn, perform: { signedIn in
             if !signedIn, RemoteStore.sessionId(of: selection) != nil { selection = nil }
-        }
+        })
         // Its computer was taken off the account: the same.
-        .onChange(of: app.remote.departed) { gone in
+        .onChange(of: app.remote.departed, perform: { gone in
             if let id = RemoteStore.sessionId(of: selection), gone.contains(id) { selection = nil }
-        }
-        .onChange(of: app.connectorsRequest) { token in
+        })
+        .onChange(of: app.connectorsRequest, perform: { token in
             guard token != nil, scenePhase != .background else { return }
             app.connectorsRequest = nil
             sheet = .connectors
-        }
+        })
         .fullScreenCover(isPresented: $webOpen) { WebFallbackView() }
         // The Live Activity and the widgets; a cold launch keeps the link until this view is up.
         .compatChange(of: link?.token, initial: true) {
@@ -196,14 +196,14 @@ struct MainView: View {
             link = nil
             Task { await follow(request.link) }
         }
-        .onChange(of: workspaceId) { WidgetSnapshotWriter.shared.refresh() }
+        .onChange(of: workspaceId, perform: { WidgetSnapshotWriter.shared.refresh() })
         // A window narrowed past the sidebar has no place beside it for the store.
-        .onChange(of: sizeClass) { size in
+        .onChange(of: sizeClass, perform: { size in
             if size != .regular, storeOpen {
                 storeOpen = false
                 sheet = .store
             }
-        }
+        })
     }
 
     /// The layout with what the window follows: its launch, the page it is on, and the requests
@@ -215,9 +215,9 @@ struct MainView: View {
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { windowWidth = $0 }
         .focusedSceneValue(\.windowCommands, windowCommands)
         .task(id: app.workspaces.map(\.id)) { launched() }
-        .onChange(of: place) { place in
+        .onChange(of: place, perform: { place in
             if placeRestored, let place { UserDefaults.standard.set(place, forKey: Self.placeKey) }
-        }
+        })
         // Which store this copy came from: only an App Store install is asked for a rating.
         .task { await AppDistribution.refresh() }
         .task(id: canAnnounce) {
@@ -244,8 +244,8 @@ struct MainView: View {
             }
         }
         // Windows take turns: what is read is the one in front.
-        .onChange(of: scenePhase) { phase in if phase == .active { app.currentSession = selection } }
-        .onChange(of: selection) { id in
+        .onChange(of: scenePhase, perform: { phase in if phase == .active { app.currentSession = selection } })
+        .onChange(of: selection, perform: { id in
             app.currentSession = id
             if launchedUnderBot { launchedUnderBot = false } else { botOpen = false }
             if let id {
@@ -253,13 +253,13 @@ struct MainView: View {
             } else {
                 newConversation(in: workspace)
             }
-        }
+        })
         // An archived current session leaves the main view (here, the drawer, a follow push).
-        .onChange(of: app.archived) { archived in
+        .onChange(of: app.archived, perform: { archived in
             if let selection, archived.contains(selection) { self.selection = nil }
-        }
+        })
         // `app.open(session:)`: toasts, the subagent catalog, schedules…
-        .onChange(of: app.openRequest?.token) { token in
+        .onChange(of: app.openRequest?.token, perform: { token in
             guard token != nil, scenePhase != .background, let id = app.openRequest?.id else { return }
             app.openRequest = nil
             // Asked for over a sheet (a toast there): the sheet goes, or the session opens unseen behind it.
@@ -267,8 +267,8 @@ struct MainView: View {
             botOpen = false
             selection = id
             setDrawer(false)
-        }
-        .onChange(of: app.newSessionRequest?.token) { token in
+        })
+        .onChange(of: app.newSessionRequest?.token, perform: { token in
             guard token != nil, scenePhase != .background, let request = app.newSessionRequest else { return }
             app.newSessionRequest = nil
             sheet = nil
@@ -277,12 +277,12 @@ struct MainView: View {
             if let target { workspaceId = target.id }
             newConversation(in: target, agentPreset: request.agentPreset, draft: request.draft, prompt: request.prompt)
             setDrawer(false)
-        }
-        .onChange(of: app.credentialRequest?.token) { token in
+        })
+        .onChange(of: app.credentialRequest?.token, perform: { token in
             guard token != nil, scenePhase != .background, let step = app.credentialRequest?.step else { return }
             app.credentialRequest = nil
             Task { await openCredentials(step) }
-        }
+        })
         #if DEBUG
         .task { openForChecks() }
         #endif
@@ -374,7 +374,7 @@ struct MainView: View {
         } message: {
             Text("充值后才能开始新会话，也可稍后在「设置 → 账号与余额」充值。")
         }
-        .onChange(of: app.lastError) { error in if error != nil { Haptics.error() } }
+        .onChange(of: app.lastError, perform: { error in if error != nil { Haptics.error() } })
         .alert("出错了", isPresented: Binding(get: { app.lastError != nil }, set: { if !$0 { app.lastError = nil } })) {
             Button("好", role: .cancel) {}
         } message: {

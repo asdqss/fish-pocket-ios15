@@ -44,9 +44,9 @@ struct ComposerStatusBar: View {
         }) {
             ComposerStatusSheet(model: model, waiting: waiting, reveal: reveal)
         }
-        .onChange(of: interactionArrived) { arrived in
+        .onChange(of: interactionArrived, perform: { arrived in
             if arrived { showSheet = false }
-        }
+        })
     }
 
     private func bar(summary: AttributedString, tail: String, hasStatus: Bool) -> some View {
@@ -231,9 +231,9 @@ struct ComposerStatusSheet: View {
             // 「插话」 on the last queued row (or 「全部插话」, a delete, the agent picking
             // the queue up) leaves nothing to show: close, so the conversation behind
             // shows where the message went instead of a blank panel.
-            .onChange(of: hasContent) { has in
+            .onChange(of: hasContent, perform: { has in
                 if !has { dismiss() }
-            }
+            })
         }
         .compatDetents([.medium, .large])
         .sheetNotices()

@@ -298,7 +298,7 @@ struct BotAppearanceSheet: View {
                 .navigationTitle("头像")
                 .navigationBarTitleDisplayMode(.inline)
                 .closeButton(dismiss)
-                .onChange(of: photo) { item in
+                .onChange(of: photo, perform: { item in
                     guard let item else { return }
                     Task {
                         defer { photo = nil }
@@ -311,7 +311,7 @@ struct BotAppearanceSheet: View {
                         save(bot, avatar: ["image": .string(url)])
                         await loadLibrary()
                     }
-                }
+                })
                 .task { await loadLibrary() }
             }
         }

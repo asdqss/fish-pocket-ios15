@@ -34,7 +34,7 @@ struct ShareAppPage: View {
                     .padding(.vertical, 16)
                     .frame(maxWidth: .infinity)
             }
-            .scrollBounceBehavior(.basedOnSize)
+            .compatScrollBounceBehavior(.basedOnSize)
             actions
                 .padding(.horizontal, 20)
                 .padding(.top, 12)

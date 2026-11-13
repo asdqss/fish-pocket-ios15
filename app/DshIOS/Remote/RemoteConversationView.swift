@@ -76,12 +76,12 @@ struct RemoteConversationView: View {
             .modifier(TimelineAnchor())
             .modifier(BottomFollow(atBottom: $atBottom) { scrollToBottom(proxy, animated: false) })
             .scrollDismissesKeyboard(.immediately)
-            .scrollBounceBehavior(.always)
+            .compatScrollBounceBehavior(.always)
             .simultaneousGesture(TapGesture().onEnded { dismissKeyboard() })
-            .onChange(of: model.rows.last?.id) { _ in
+            .onChange(of: model.rows.last?.id, perform: { _ in
                 if case .user? = model.rows.last { atBottom = true; scrollToBottom(proxy) }
-            }
-            .onChange(of: model.busy) { busy in if busy, atBottom { scrollToBottom(proxy) } }
+            })
+            .onChange(of: model.busy, perform: { busy in if busy, atBottom { scrollToBottom(proxy) } })
             .overlay(alignment: .bottomTrailing) {
                 ZStack {
                     if !atBottom, !model.rows.isEmpty {
@@ -137,11 +137,11 @@ struct RemoteConversationView: View {
                 detail = item
             }
         ))
-        .onChange(of: presented(model)?.id) { _, id in if id != nil { dismissKeyboard() } }
-        .onChange(of: waiting(model)?.id) { old, new in if let new, new != old { Haptics.warning() } }
-        .onChange(of: model.optionsRequest) { panel = .options }
+        .onChange(of: presented(model)?.id, perform: { _, id in if id != nil { dismissKeyboard() } })
+        .onChange(of: waiting(model)?.id, perform: { old, new in if let new, new != old { Haptics.warning() } })
+        .onChange(of: model.optionsRequest, perform: { panel = .options })
         // Archived from here or from another device: the main view moves on, as with a local session.
-        .onChange(of: model.meta?.archived) { archived in if archived == true { selection = nil } }
+        .onChange(of: model.meta?.archived, perform: { archived in if archived == true { selection = nil } })
         // Read once it is on screen, and again when a turn ends while it is.
         .compatChange(of: "\(model.meta?.unread == true)-\(scenePhase == .active)", initial: true) {
             if scenePhase == .active { app.remote.markRead(sessionId) }
@@ -166,11 +166,11 @@ struct RemoteConversationView: View {
         } message: { enable in
             Text(takeoverMessage(enable, model))
         }
-        .onChange(of: model.notice) { text in
+        .onChange(of: model.notice, perform: { text in
             guard let text else { return }
             model.notice = nil
             app.showToast(text, tone: .warning)
-        }
+        })
         .alert("出错了", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button("好", role: .cancel) {}
         } message: {

@@ -579,7 +579,7 @@ struct BotSetupView: View {
             .readableWidth()
         }
         .safeAreaInset(edge: .bottom) { action.padding(.horizontal, 20).padding(.bottom, 12).background(Palette.background) }
-        .onChange(of: team.status) { status in if status == .ready { Haptics.success() } }
+        .onChange(of: team.status, perform: { status in if status == .ready { Haptics.success() } })
     }
 
     @ViewBuilder
@@ -687,10 +687,10 @@ struct BotLookPreview: View {
                     mood: mood, lively: true, seed: shape ?? "", poke: poke)
                 .scaleEffect(popped ? 1.14 : 1)
                 .rotationEffect(.degrees(popped ? -9 : 0))
-                .onChange(of: look) { _ in
+                .onChange(of: look, perform: { _ in
                     withAnimation(.spring(response: 0.16, dampingFraction: 0.7)) { popped = true }
                     withAnimation(.spring(response: 0.42, dampingFraction: 0.42).delay(0.16)) { popped = false }
-                }
+                })
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .contentShape(Rectangle())

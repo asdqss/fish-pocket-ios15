@@ -191,7 +191,9 @@ struct ImageViewer: View {
                 .offset(offset)
                 .gesture(
                     MagnificationGesture()
-                        .onChanged { scale = max(1, min(6, lastScale * $0.magnification)) }
+                        // iOS 16 的 MagnificationGesture.Value 就是 CGFloat，
+                        // `.magnification` 是 iOS 17 才加的成员。
+                        .onChanged { scale = max(1, min(6, lastScale * $0)) }
                         .onEnded { _ in
                             lastScale = scale
                             if scale == 1 { withAnimation(.snappy) { offset = .zero }; lastOffset = .zero }

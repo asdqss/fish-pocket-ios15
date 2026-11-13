@@ -53,9 +53,9 @@ struct ModelPicker: View {
         .accessibilityLabel(context.effortName(model).map { Text("模型：\(context.modelName(model))，推理档位 \($0)") } ?? Text("模型：\(context.modelName(model))"))
         .sheet(isPresented: $searching) { ModelSearchSheet(model: model, context: context) }
         // MS-03: a provider's key or adapter changed; the catalog the menu shows follows.
-        .onChange(of: app.revision("llm/adapters-updated", "settings/document-updated", "credentials/record-updated", "credentials/reference-updated")) {
+        .onChange(of: app.revision("llm/adapters-updated", "settings/document-updated", "credentials/record-updated", "credentials/reference-updated"), perform: {
             Task { await context.loadCatalog(model) }
-        }
+        })
     }
 
     @ViewBuilder
@@ -278,9 +278,9 @@ struct ComposerView: View {
             consumeFocus()
         }
         .photosPicker(isPresented: $showPhotos, selection: $photos, maxSelectionCount: max(1, composer.remainingImageSlots), matching: .any(of: [.images, .videos]), preferredItemEncoding: .current)
-        .onChange(of: photos) { items in
+        .onChange(of: photos, perform: { items in
             Task { await loadPhotos(items) }
-        }
+        })
         .fullScreenCover(isPresented: $showCamera) {
             CameraPicker { image in
                 if let refusal = composer.addImage(image) { app.showToast(refusal) }
@@ -314,32 +314,32 @@ struct ComposerView: View {
         }
         .permissionConfirmation($confirmingPermission, confirm: applyPermission)
         // A popover has no `onDismiss`. A picker presented before its dismissal ends never shows.
-        .onChange(of: showTray) { open in
+        .onChange(of: showTray, perform: { open in
             guard !open, sizeClass == .regular else { return }
             Task {
                 try? await Task.sleep(nanoseconds: UInt64((450) * 1_000_000))
                 sheetClosed()
             }
-        }
-        .onChange(of: showTray || showEditor || browsing != nil) { open in
+        })
+        .onChange(of: showTray || showEditor || browsing != nil, perform: { open in
             if open { sheetUp.wrappedValue = true }
-        }
-        .onChange(of: composer.focusRequest) { focused = true }
-        .onChange(of: focused) { now in focusChanged(now) }
+        })
+        .onChange(of: composer.focusRequest, perform: { focused = true })
+        .onChange(of: focused, perform: { now in focusChanged(now) })
         // A picker closing gives the keyboard back when it was up before: typed into
         // (`/model`, `/file`) or reached from the tray while it was up.
-        .onChange(of: pickerUp) { open in
+        .onChange(of: pickerUp, perform: { open in
             if open {
                 refocus = refocus || focused
             } else {
                 if refocus { focused = true }
                 refocus = false
             }
-        }
+        })
         // C-99 / C-110 / C-141: catalogs and the preference follow their engine events.
-        .onChange(of: app.revision("commands/change", "agent-preset/selected")) { Task { await context.loadCommands(model) } }
-        .onChange(of: app.revision("permission-presets/catalog-changed")) { Task { await context.loadPermissions(model) } }
-        .onChange(of: app.revision("settings/document-updated")) { Task { await context.loadSettings(model) } }
+        .onChange(of: app.revision("commands/change", "agent-preset/selected"), perform: { Task { await context.loadCommands(model) } })
+        .onChange(of: app.revision("permission-presets/catalog-changed"), perform: { Task { await context.loadPermissions(model) } })
+        .onChange(of: app.revision("settings/document-updated"), perform: { Task { await context.loadSettings(model) } })
     }
 
     /// The `/` or `@` token being typed. It needs the keyboard: hiding it folds the panel.
@@ -808,10 +808,10 @@ struct FittedSheet: ViewModifier {
         ScrollView {
             content.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
         }
-        .scrollBounceBehavior(.basedOnSize)
+        .compatScrollBounceBehavior(.basedOnSize)
         .compatDetents([.height(height)])
         .presentationDragIndicator(.hidden)
-        .presentationBackground(Palette.background)
+        .compatPresentationBackground(Palette.background)
     }
 }
 

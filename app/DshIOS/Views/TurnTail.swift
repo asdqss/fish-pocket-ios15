@@ -18,8 +18,9 @@ struct TurnMenu: ViewModifier {
 
     func body(content: Content) -> some View {
         if enabled {
-            // 15.6：`contextMenu(menuItems:preview:)` 是 16 才有的，带预览的菜单退成普通菜单。
-            content.contextMenu(menuItems: items)
+            // `contextMenu(menuItems:preview:)` 是 iOS 16 才有的，带预览的菜单退成普通菜单。
+            // 注意 `menuItems:` 收的是 `() -> MenuItems` 这个**闭包**，不能直接传 `items`（它是 some View）。
+            content.contextMenu(menuItems: { items })
         } else {
             content
         }

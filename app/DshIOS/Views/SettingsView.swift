@@ -83,10 +83,10 @@ struct SettingsView: View {
                         Label("语言", systemImage: "globe")
                     }
                     .pickerValueTint()
-                    .onChange(of: languageChoice) { value in
+                    .onChange(of: languageChoice, perform: { value in
                         AppLanguage.chosen = value == "system" ? nil : value
                         languageChanged = true
-                    }
+                    })
                 }
 
                 Section {
@@ -122,8 +122,8 @@ struct SettingsView: View {
                 } footer: {
                     Text(backgroundFooter)
                 }
-                .onChange(of: keepAlive) { BackgroundKeeper.shared.settingsChanged() }
-                .onChange(of: continuedProcessing) { BackgroundKeeper.shared.settingsChanged() }
+                .onChange(of: keepAlive, perform: { BackgroundKeeper.shared.settingsChanged() })
+                .onChange(of: continuedProcessing, perform: { BackgroundKeeper.shared.settingsChanged() })
                 .alert("关闭静音音频？", isPresented: $confirmingKeepAliveOff) {
                     Button("取消", role: .cancel) {}
                     Button("关闭", role: .destructive) { keepAlive = false }
@@ -139,7 +139,7 @@ struct SettingsView: View {
                 } footer: {
                     Text("关掉后，主屏幕和锁屏小组件只显示数量和状态。设备锁定时，标题总会被打码。")
                 }
-                .onChange(of: widgetTitles) { WidgetSnapshotWriter.shared.refresh() }
+                .onChange(of: widgetTitles, perform: { WidgetSnapshotWriter.shared.refresh() })
 
                 Section {
                     NavigationLink { AdvancedSettingsPage() } label: { row("高级", "wrench.and.screwdriver") }
@@ -613,7 +613,7 @@ private struct EngineLogView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(16)
         }
-        .defaultScrollAnchor(.bottom)
+        .compatDefaultScrollAnchor(.bottom)
         .background(Palette.grouped)
         .navigationTitle("引擎日志")
         .navigationBarTitleDisplayMode(.inline)

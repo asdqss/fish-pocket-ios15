@@ -231,7 +231,7 @@ struct CompatGeometryChange<T: Equatable>: ViewModifier {
                 let value = transform(proxy)
                 Color.clear
                     .onAppear { action(value) }
-                    .onChange(of: value) { action($0) }
+                    .onChange(of: value, perform: { action($0) })
             }
         )
     }
@@ -300,15 +300,71 @@ extension View {
 
     /// `.toolbarBackground(_:for:)`（iOS 16）。
     func toolbarBackground<S: ShapeStyle>(_ style: S, for bars: ToolbarPlacement...) -> some View { self }
-
-    /// `.presentationBackground(_:)`（iOS 16.4）。
-    func presentationBackground<S: ShapeStyle>(_ style: S) -> some View { self }
-    func presentationBackground<V: View>(_ view: V) -> some View { self }
-
-    /// `.defaultScrollAnchor(_:)`（iOS 17）。
-    func defaultScrollAnchor(_ anchor: UnitPoint?) -> some View { self }
 }
 #endif  // DSH_IOS15_LEGACY
+
+// 以下这些 API 在 **16.0 上仍然不存在**（16.4 / 17 才有），所以必须保留降级实现，
+// 但**不能占用系统名字**——改叫 compat*，调用点跟着改。
+extension View {
+    /// 替 `.presentationBackground(_:)`（iOS 16.4）：
+    /// 16.0 上没有这个修饰符，sheet 背景沿用系统默认。
+    func compatPresentationBackground<S: ShapeStyle>(_ style: S) -> some View { self }
+    func compatPresentationBackground<V: View>(_ view: V) -> some View { self }
+
+    /// 替 `.presentationBackgroundInteraction(_:)`（iOS 16.4）。
+    func compatPresentationBackgroundInteraction(_ interaction: PresentationBackgroundInteraction) -> some View { self }
+
+    /// 替 `.defaultScrollAnchor(_:)` / `.defaultScrollAnchor(_:for:)`（iOS 17）。
+    func compatDefaultScrollAnchor(_ anchor: UnitPoint?) -> some View { self }
+    func compatDefaultScrollAnchor(_ anchor: UnitPoint?, for role: ScrollAnchorRole) -> some View { self }
+
+    /// 替 `.scrollBounceBehavior(_:axes:)`（iOS 16.4）。
+    func compatScrollBounceBehavior(_ behavior: CompatScrollBounceBehavior, axes: Axis.Set = [.vertical]) -> some View { self }
+
+    /// 替 `.scrollIndicatorsFlash(onAppear:)`（iOS 17）。
+    func compatScrollIndicatorsFlash(onAppear: Bool = false) -> some View { self }
+
+    /// 替 `.scrollClipDisabled(_:)`（iOS 17）。
+    func compatScrollClipDisabled(_ disabled: Bool = true) -> some View { self }
+}
+
+/// 替 `ScrollBounceBehavior`（iOS 16.4）。
+enum CompatScrollBounceBehavior: Hashable {
+    case automatic, always, basedOnSize
+}
+
+/// 替 `PresentationBackgroundInteraction`（iOS 16.4）。
+enum PresentationBackgroundInteraction: Hashable {
+    case automatic, enabled, disabled
+}
+
+/// 替 `ScrollAnchorRole`（iOS 17）。
+enum ScrollAnchorRole: Hashable {
+    case initialOffset, sizeChanges, alignment
+}
+
+extension View {
+    /// 替 `.navigationDestination(item:destination:)`（iOS 17）。
+    /// 16.0 上退成「值为非 nil 时用 `NavigationLink(isActive:)` 推入」。
+    func compatNavigationDestination<Item: Hashable, D: View>(
+        item: Binding<Item?>,
+        @ViewBuilder destination: @escaping (Item) -> D
+    ) -> some View {
+        background(
+            NavigationLink(
+                isActive: Binding(
+                    get: { item.wrappedValue != nil },
+                    set: { if !$0 { item.wrappedValue = nil } }
+                ),
+                destination: {
+                    if let value = item.wrappedValue { destination(value) } else { EmptyView() }
+                },
+                label: { EmptyView() }
+            )
+            .hidden()
+        )
+    }
+}
 
 // MARK: - Swift Charts（iOS 16）
 
@@ -480,39 +536,17 @@ enum CompatRegex15 {
     }
 }
 
-// MARK: - onChange(of:initial:_:)（iOS 17）
+// MARK: - onChange（iOS 17 的双参版本）
 //
-// 这份扩展必须保留。全仓有大量 `onChange(of: x) { new in ... }` 的调用点，
-// 在 16.0 上编译器会在两个候选之间摇摆：
-//   - 系统的 `onChange(of:perform:)`（iOS 14）
-//   - 系统的 `onChange(of:_:)`（iOS 17，带 initial:）
-// 只靠系统的话，某些写法会被判成「用了 iOS 17 的 onChange」而直接报
-// "'onChange(of:initial:_:)' is only available in iOS 17.0 or newer"。
-// 这里提供一个签名精确的重载把单参闭包接住，消除歧义。
+// ⚠️ 不要在这里定义 `func onChange(of:_:)`。
+// 部署目标 16.0 时，系统的 `onChange(of:_:)`（iOS 17）已经在候选里，
+// 再叠加一个同签名的扩展会让**每一个** `.onChange(of: x, perform: { ... })` 变成
+// "ambiguous use of 'onChange'"，编译器提示的解法是：
+//   "use an explicit argument label instead of a trailing closure
+//    to call 'onChange(of:perform:)'"
+// 也就是调用点写 `.onChange(of: x, perform: { ... })` —— 显式标签就唯一了。
 //
-// 注意：`initial` 版本的用户调用点统一走 Views/Compat15.swift 的 `compatChange`。
-
-extension View {
-    /// 单参、无 `initial`：与系统 `onChange(of:perform:)` 同义，只是签名更明确。
-    func onChange<V: Equatable>(of value: V,
-                                _ action: @escaping (V) -> Void) -> some View {
-        modifier(CompatOnChange(value: value, initial: false, action: { new, _ in action(new) }))
-    }
-}
-
-/// 把 `onChange` 落到「先跑一次（可选）+ 变化时跑」两个动作上。
-/// 15.6 / 16.0 上系统只有单参 `onChange(of:perform:)`，不带 initial。
-struct CompatOnChange<V: Equatable>: ViewModifier {
-    let value: V
-    let initial: Bool
-    let action: (V, V) -> Void
-
-    func body(content: Content) -> some View {
-        content
-            .onAppear { if initial { action(value, value) } }
-            .onChange(of: value) { new in action(new, new) }
-    }
-}
+// 需要 `initial:` 语义的调用点走 Views/Compat15.swift 的 `compatChange`。
 
 // MARK: - Path.union(_:eoFill:)（iOS 17）
 

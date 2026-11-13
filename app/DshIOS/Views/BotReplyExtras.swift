@@ -109,10 +109,28 @@ extension IMPlatform {
 // MARK: - Markdown
 
 /// A reply or a whole conversation as a `.md` file, for the share sheet.
-struct MarkdownFile {
+///
+/// `ShareLink(item:)` 要求参数实现 `Transferable`（iOS 16+）。
+/// 上游原本靠 `MarkdownFile` 的隐式转换，16.0 下编译器直接拒绝，
+/// 所以这里给出显式的 `FileRepresentation`：写成一个临时 `.md` 再交给分享面板。
+struct MarkdownFile: Transferable {
     let name: String
     let text: String
 
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(exportedContentType: .plainText) { file in
+            let safe = file.name
+                .replacingOccurrences(of: "/", with: "-")
+                .replacingOccurrences(of: ":", with: "-")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let base = safe.isEmpty ? "ds-markdown" : safe
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent(base)
+                .appendingPathExtension("md")
+            try file.text.write(to: url, atomically: true, encoding: .utf8)
+            return SentTransferredFile(url)
+        }
+    }
 }
 
 extension SessionModel {

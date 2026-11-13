@@ -63,7 +63,7 @@ private struct WhatsNewContent: View {
             .padding(.bottom, 24)
             .frame(maxWidth: .infinity)
         }
-        .scrollBounceBehavior(.basedOnSize)
+        .compatScrollBounceBehavior(.basedOnSize)
         .background(Palette.grouped)
         .onAppear {
             if reduceMotion { appeared = true } else {

@@ -346,12 +346,12 @@ struct AttachmentRail: View {
                     .padding(.trailing, 4)
                 }
                 .onAppear { lastAttachmentCount = composer.attachments.count }
-                .onChange(of: composer.attachments.count) { new in
+                .onChange(of: composer.attachments.count, perform: { new in
                     // iOS 16 只有单参 `onChange`：上一次的数量自己记。
                     let old = lastAttachmentCount
                     lastAttachmentCount = new
                     if new > old, let last = composer.attachments.last { withAnimation { proxy.scrollTo(last.id, anchor: .trailing) } }
-                }
+                })
             }
         }
     }

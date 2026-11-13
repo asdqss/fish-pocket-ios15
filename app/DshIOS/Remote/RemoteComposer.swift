@@ -58,11 +58,11 @@ struct RemoteComposer: View {
             if model.draft.hasPrefix("/"), model.commands.isEmpty { await model.loadCommands() }
         }
         .photosPicker(isPresented: $showPhotos, selection: $photos, maxSelectionCount: max(1, Self.maxFiles - model.attachments.count - reading.count), matching: .any(of: [.images, .videos]), preferredItemEncoding: .current)
-        .onChange(of: photos) { items in
+        .onChange(of: photos, perform: { items in
             guard !items.isEmpty else { return }
             photos = []
             Task { await add(photos: items) }
-        }
+        })
         .fileImporter(isPresented: $showFiles, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in
             if case .success(let urls) = result { add(files: urls) }
         }
@@ -194,7 +194,7 @@ struct RemoteComposer: View {
             }
         }
         .frame(maxHeight: 220)
-        .scrollBounceBehavior(.basedOnSize)
+        .compatScrollBounceBehavior(.basedOnSize)
         .background(Palette.grouped, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 

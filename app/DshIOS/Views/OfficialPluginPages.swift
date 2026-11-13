@@ -236,10 +236,10 @@ private struct OfficialForm<Content: View>: View {
                     content.disabled(!app.settings.writable || saving)
                 }
             }
-            .onChange(of: failed) { failed in
+            .onChange(of: failed, perform: { failed in
                 guard failed else { return }
                 withAnimation { proxy.scrollTo(failedField ?? Self.failure, anchor: .center) }
-            }
+            })
         }
         .tint(Palette.ink)
         .groupedList()
