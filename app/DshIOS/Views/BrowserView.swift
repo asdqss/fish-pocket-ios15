@@ -34,7 +34,8 @@ final class BrowserModel: NSObject, ObservableObject {
         webView = WKWebView(frame: .zero, configuration: configuration)
         lastURL = UserDefaults.standard.string(forKey: storageKey)
         super.init()
-        webView.isInspectable = true
+        // isInspectable 是 iOS 16.4+：16.0 上没有这个开关，跳过。
+  if #available(iOS 16.4, *) { webView.isInspectable = true }
         webView.allowsBackForwardNavigationGestures = true
         webView.navigationDelegate = self
         webView.uiDelegate = self

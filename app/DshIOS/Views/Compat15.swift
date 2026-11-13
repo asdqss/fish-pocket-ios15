@@ -83,17 +83,10 @@ struct CompatUnavailable<LView: View, DView: View, AView: View>: View {
 
 extension CompatUnavailable where DView == EmptyView, AView == EmptyView {
     /// `ContentUnavailableView("标题", systemImage: "icon")` 的等价物。
-    init(_ titleKey: LocalizedStringKey, systemImage: String) {
-        self.init(label: {
-            VStack(spacing: 8) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 40, weight: .light))
-                    .foregroundStyle(.secondary)
-                Text(titleKey).font(.headline)
-            }
-        }, description: { EmptyView() }, actions: { EmptyView() })
-    }
-
+    ///
+    /// 只保留**一个** init 并用 `String` 接字面量：原来同时有
+    /// `LocalizedStringKey` 和 `String` 两个重载时，`CompatUnavailable("字面量", ...)`
+    /// 会因两个候选都匹配而推断不出 `LView`（报 generic parameter 'LView' could not be inferred）。
     init(_ title: String, systemImage: String) {
         self.init(label: {
             VStack(spacing: 8) {
@@ -179,11 +172,8 @@ struct CompatLabeledContent<Content: View>: View {
     private let title: Text
     private let content: Content
 
-    init(_ titleKey: LocalizedStringKey, @ViewBuilder content: () -> Content) {
-        self.title = Text(titleKey)
-        self.content = content()
-    }
-
+    /// 只保留 `String` 一个入口：字面量会自动转成 String，
+    /// 同时存在 `LocalizedStringKey` 重载时会推断不出 `Content`。
     init(_ title: String, @ViewBuilder content: () -> Content) {
         self.title = Text(title)
         self.content = content()
@@ -199,60 +189,56 @@ struct CompatLabeledContent<Content: View>: View {
 }
 
 extension CompatLabeledContent where Content == Text {
-    init(_ titleKey: LocalizedStringKey, value: String) {
-        self.init(titleKey) { Text(value) }
-    }
-
     init(_ title: String, value: String) {
         self.init(title) { Text(value) }
     }
 }
 
 // MARK: - 补充：调用点实际用到的重载
+//
+// 注意：泛型参数名必须与主类型的 `LView / DView / AView` 一致。
+// 写成 `Label / Description / Actions` 会被当成未声明的类型，
+// 报 "cannot find type 'Description' in scope"。
 
-extension CompatUnavailable where Description == EmptyView {
+extension CompatUnavailable where DView == EmptyView {
     /// `ContentUnavailableView { Label } actions: { … }`：有按钮、没有说明。
-    init(@ViewBuilder label: () -> Label, @ViewBuilder actions: () -> Actions) {
+    init(@ViewBuilder label: () -> LView, @ViewBuilder actions: () -> AView) {
         self.init(label: label, description: { EmptyView() }, actions: actions)
     }
 }
 
-extension CompatUnavailable where Actions == EmptyView {
-    init(@ViewBuilder label: () -> Label, @ViewBuilder description: () -> Description) {
+extension CompatUnavailable where AView == EmptyView {
+    init(@ViewBuilder label: () -> LView, @ViewBuilder description: () -> DView) {
         self.init(label: label, description: description, actions: { EmptyView() })
     }
 }
 
-extension CompatUnavailable where Description == EmptyView, Actions == EmptyView {
-    init(@ViewBuilder label: () -> Label) {
+extension CompatUnavailable where DView == EmptyView, AView == EmptyView {
+    init(@ViewBuilder label: () -> LView) {
         self.init(label: label, description: { EmptyView() }, actions: { EmptyView() })
     }
 }
 
-extension CompatUnavailable where Description == Text, Actions == EmptyView {
-    init(_ titleKey: LocalizedStringKey, systemImage: String, description: Text) {
+extension CompatUnavailable where DView == Text, AView == EmptyView {
+    init(_ title: String, systemImage: String, description: Text) {
         self.init(label: {
             VStack(spacing: 8) {
                 Image(systemName: systemImage)
                     .font(.system(size: 40, weight: .light))
                     .foregroundStyle(.secondary)
-                Text(titleKey).font(.headline)
+                Text(title).font(.headline)
             }
         }, description: { description }, actions: { EmptyView() })
     }
 }
 
 extension CompatLabeledContent where Content == Text {
-    init(_ titleKey: LocalizedStringKey, value: String?) {
-        self.init(titleKey) { Text(value ?? "—") }
-    }
-
     init(_ title: String, value: String?) {
         self.init(title) { Text(value ?? "—") }
     }
 
-    init<V>(_ titleKey: LocalizedStringKey, value: V) where V: CustomStringConvertible {
-        self.init(titleKey) { Text(value.description) }
+    init<V>(_ title: String, value: V) where V: CustomStringConvertible {
+        self.init(title) { Text(value.description) }
     }
 }
 

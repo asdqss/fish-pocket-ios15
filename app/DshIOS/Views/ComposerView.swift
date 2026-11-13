@@ -381,7 +381,12 @@ struct ComposerView: View {
     private var input: some View {
         // Between three lines and four, whatever the text size.
         let threeLines = UIFont.preferredFont(forTextStyle: .callout).lineHeight * 3.5
-        return CompatTextField(placeholder, text: $composer.text)
+        // `model` 是 `let`、`composer` 是计算属性 → 没有 `$composer` 这种投影。
+        // 手写 Binding 接到 `ComposerModel` 这个引用类型的 `text` 上。
+        return CompatTextField(placeholder, text: Binding(
+            get: { composer.text },
+            set: { composer.text = $0 }
+        ))
             .font(.callout)
             .lineLimit(1...5)
             .focused($focused)

@@ -7,7 +7,10 @@ import UIKit
 // 有损的地方都写在各自注释里，方便以后按需补。
 
 // MARK: - NavigationStack（iOS 16）
+//
+// 部署目标 16.0：`NavigationStack` / `.navigationDestination` 都是 iOS 16 原生 API。
 
+#if DSH_IOS15_LEGACY
 /// 替 `NavigationStack`：15.6 上落到 `NavigationView`（`.stack` 样式，iPhone 上就是全屏推入）。
 ///
 /// `path:` 版本接受绑定但**不参与路由**——15.6 没有 `navigationDestination(for:)` 的
@@ -51,9 +54,13 @@ extension View {
         self
     }
 }
+#endif  // DSH_IOS15_LEGACY
 
 // MARK: - ShareLink / SharePreview（iOS 16）
+//
+// 部署目标 16.0：`ShareLink` / `SharePreview` 都是 iOS 16 原生 API。
 
+#if DSH_IOS15_LEGACY
 /// 替 `SharePreview`：15.6 上只是承接参数，不参与呈现。
 struct SharePreview {
     let title: String
@@ -100,7 +107,10 @@ extension ShareLink where Label == ShareIconLabel {
         self.label = ShareIconLabel()
     }
 }
+#endif  // DSH_IOS15_LEGACY
 
+/// 分享的运行时实现：`ShareLink` 在 16.0 上走系统原生，但 `Views/Compat15.swift`
+/// 里的 `CompatShareButton` 仍然需要这套 `UIActivityViewController` 逻辑，所以不围进来。
 enum SharePayload {
     /// 把「可分享的东西」翻成 `UIActivityViewController` 认识的对象。
     static func activities(from item: Any) -> [Any] {
@@ -152,7 +162,10 @@ enum SharePayload {
 }
 
 // MARK: - Grid / GridRow（iOS 16）
+//
+// 部署目标 16.0：`Grid` / `GridRow` / `.gridCellColumns` 都是 iOS 16 原生 API。
 
+#if DSH_IOS15_LEGACY
 private struct GridSpacingKey: EnvironmentKey {
     static let defaultValue: CGFloat? = nil
 }
@@ -197,6 +210,7 @@ struct GridRow<Content: View>: View {
         HStack(alignment: .firstTextBaseline, spacing: 14) { content }
     }
 }
+#endif  // DSH_IOS15_LEGACY
 
 extension View {
     /// 替 `.onGeometryChange(for:of:action:)`（iOS 16/17）：用 `GeometryReader` 量同一件事。
@@ -224,7 +238,10 @@ struct CompatGeometryChange<T: Equatable>: ViewModifier {
 }
 
 // MARK: - ViewThatFits（iOS 16）
+//
+// 部署目标 16.0：`ViewThatFits` 是 iOS 16 原生 API。
 
+#if DSH_IOS15_LEGACY
 /// 替 `ViewThatFits`：15.6 上取**最后**一个候选——这几处调用都把「更紧凑、总能放下」
 /// 的那一个写在最后（横向 ScrollView / 纵向堆叠），所以不会出现裁切。
 struct ViewThatFits<Content: View>: View {
@@ -244,6 +261,7 @@ struct ViewThatFits<Content: View>: View {
         }
     }
 }
+#endif  // DSH_IOS15_LEGACY
 
 // MARK: - withAnimation(_:_:completion:)（iOS 17）
 
@@ -270,7 +288,12 @@ extension Path {
 }
 
 // MARK: - 少量 iOS 16 修饰符的降级
+//
+// 注意：部署目标是 16.0 时，下面这几个**全部是 iOS 16 原生已有的 API**。
+// 再定义一遍同名 shim 会让每个调用点变成 "ambiguous use of ..."。
+// 所以用 `#if` 围起来，只在 15.6 上生效。
 
+#if DSH_IOS15_LEGACY
 extension View {
     /// `.scrollContentBackground(.hidden)`（iOS 16）：15.6 上原本就没有底色，忽略即可。
     func scrollContentBackground(_ visibility: Visibility) -> some View { self }
@@ -285,6 +308,7 @@ extension View {
     /// `.defaultScrollAnchor(_:)`（iOS 17）。
     func defaultScrollAnchor(_ anchor: UnitPoint?) -> some View { self }
 }
+#endif  // DSH_IOS15_LEGACY
 
 // MARK: - Swift Charts（iOS 16）
 
@@ -331,7 +355,10 @@ struct CompatChart15: View {
 }
 
 // MARK: - ScrollDismissesKeyboardMode / scrollDismissesKeyboard（iOS 16）
+//
+// 部署目标 16.0：`ScrollDismissesKeyboardMode` 是 iOS 16 原生类型。
 
+#if DSH_IOS15_LEGACY
 /// 替 `ScrollDismissesKeyboardMode`：15.6 上没有这个开关，值只用来接住调用点。
 enum ScrollDismissesKeyboardMode {
     case immediately, interactively, never, automatically
@@ -341,9 +368,14 @@ extension View {
     /// 15.6：滚动收键盘的默认行为最接近 `.interactively`，这里不再额外处理。
     func scrollDismissesKeyboard(_ mode: ScrollDismissesKeyboardMode) -> some View { self }
 }
+#endif  // DSH_IOS15_LEGACY
 
 // MARK: - ToolbarPlacement / toolbar(_:for:)（iOS 16）
+//
+// 部署目标 16.0：`ToolbarPlacement`、`.toolbar(_:for:)` 都是 iOS 16 原生 API。
+// 再定义同名类型会让 `.navigationBar` 变成歧义引用，所以整块只在 15.6 生效。
 
+#if DSH_IOS15_LEGACY
 /// 替 `ToolbarPlacement`：只区分导航栏，其余位置在 15.6 上无对应物。
 struct ToolbarPlacement: Hashable {
     private let name: String
@@ -374,6 +406,7 @@ struct CompatToolbarVisibility: ViewModifier {
         }
     }
 }
+#endif  // DSH_IOS15_LEGACY
 
 // MARK: - 正则（15.6 没有 `Regex` 字面量）
 
@@ -449,10 +482,37 @@ enum CompatRegex15 {
 
 // MARK: - onChange(of:initial:_:)（iOS 17）
 //
-// 真正的实现在 Views/Compat15.swift 的 `compatChange`（调用点已全部改用它）。
-// 这里原本有一份**同名**的 `func onChange(of:initial:_:)` 扩展，会与系统
-// `onChange(of:perform:)` 在调用点产生歧义（编译器无法在单参闭包上二选一），
-// 而且全仓没有任何调用者，所以删掉。
+// 这份扩展必须保留。全仓有大量 `onChange(of: x) { new in ... }` 的调用点，
+// 在 16.0 上编译器会在两个候选之间摇摆：
+//   - 系统的 `onChange(of:perform:)`（iOS 14）
+//   - 系统的 `onChange(of:_:)`（iOS 17，带 initial:）
+// 只靠系统的话，某些写法会被判成「用了 iOS 17 的 onChange」而直接报
+// "'onChange(of:initial:_:)' is only available in iOS 17.0 or newer"。
+// 这里提供一个签名精确的重载把单参闭包接住，消除歧义。
+//
+// 注意：`initial` 版本的用户调用点统一走 Views/Compat15.swift 的 `compatChange`。
+
+extension View {
+    /// 单参、无 `initial`：与系统 `onChange(of:perform:)` 同义，只是签名更明确。
+    func onChange<V: Equatable>(of value: V,
+                                _ action: @escaping (V) -> Void) -> some View {
+        modifier(CompatOnChange(value: value, initial: false, action: { new, _ in action(new) }))
+    }
+}
+
+/// 把 `onChange` 落到「先跑一次（可选）+ 变化时跑」两个动作上。
+/// 15.6 / 16.0 上系统只有单参 `onChange(of:perform:)`，不带 initial。
+struct CompatOnChange<V: Equatable>: ViewModifier {
+    let value: V
+    let initial: Bool
+    let action: (V, V) -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear { if initial { action(value, value) } }
+            .onChange(of: value) { new in action(new, new) }
+    }
+}
 
 // MARK: - Path.union(_:eoFill:)（iOS 17）
 
@@ -466,7 +526,10 @@ extension Path {
 }
 
 // MARK: - ScrollBounceBehavior / scrollBounceBehavior（iOS 16.4）
+//
+// 部署目标 16.0：这两个在 iOS 16.4+ 是原生 API，不能再定义同名 shim。
 
+#if DSH_IOS15_LEGACY
 struct ScrollBounceBehavior {
     private init() {}
     static let automatic = ScrollBounceBehavior()
@@ -485,6 +548,7 @@ extension View {
     /// 15.6 的 sheet 没有可关的抓手，忽略。
     func presentationDragIndicator(_ visibility: Visibility) -> some View { self }
 }
+#endif  // DSH_IOS15_LEGACY
 
 // MARK: - TextField(_, text:, axis:)（iOS 16）
 

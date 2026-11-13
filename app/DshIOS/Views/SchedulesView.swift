@@ -786,7 +786,8 @@ struct EngineWebView: UIViewRepresentable {
         let configuration = WKWebViewConfiguration()
         configuration.userContentController.addUserScript(Self.keepShellSurface)
         let view = WKWebView(frame: .zero, configuration: configuration)
-        view.isInspectable = true
+        // isInspectable 是 iOS 16.4+：16.0 上没有这个开关，跳过。
+  if #available(iOS 16.4, *) { view.isInspectable = true }
         view.load(URLRequest(url: url))
         return view
     }

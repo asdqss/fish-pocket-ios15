@@ -52,7 +52,15 @@ final class RemotePresence {
             let selection = RemoteStore.selection(session.id)
             let active = UIApplication.shared.applicationState == .active
             if active, app.currentSession == selection { continue }
-            if !active, ActivityAuthorizationInfo().areActivitiesEnabled { continue }
+            if !active {
+                // ActivityKit 16.1+：Live Activity 关掉时也该发通知。
+                // 16.0 没有 ActivityKit，此时一律发通知。
+                var activities = false
+                if #available(iOS 16.1, *) {
+                    activities = ActivityAuthorizationInfo().areActivitiesEnabled
+                }
+                if activities { continue }
+            }
             let text = request.isApproval ? String(localized: "「\(session.displayTitle)」等你允许") : String(localized: "「\(session.displayTitle)」等你回答")
             BotNotifier.announce(text, detail: request.summary, app: app) { [weak app] in app?.open(session: selection) }
         }
