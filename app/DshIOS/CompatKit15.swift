@@ -645,6 +645,19 @@ extension View {
         }
     }
 
+    /// 接受 `Binding<Bool>` 的版本：上游 `.inspector(isPresented:)` 收的就是 Binding，
+    /// 大部分调用点传的是 `workbenchShown(...)` 这类计算出来的 Binding。
+    func compatInspector<V: View>(isPresented: Binding<Bool>,
+                                  @ViewBuilder content: @escaping () -> V) -> some View {
+        HStack(spacing: 0) {
+            self
+            if isPresented.wrappedValue {
+                Divider()
+                content()
+            }
+        }
+    }
+
     /// 替 `.inspectorColumnWidth(min:ideal:max:)`：`HStack` 布局下只认 `ideal`。
     func compatInspectorColumnWidth(min: CGFloat = 0, ideal: CGFloat, max: CGFloat = .infinity) -> some View {
         frame(minWidth: min, idealWidth: ideal, maxWidth: max)

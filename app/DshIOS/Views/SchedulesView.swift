@@ -379,9 +379,9 @@ struct ScheduleDetailView: View {
                         CompatLabeledContent("状态", value: String(localized: "已结束"))
                     }
                 }
-                .contextMenu {
+                .contextMenu(menuItems: {
                     Button { copyToPasteboard(task["id"].string ?? "") } label: { Label("复制任务 ID", systemImage: "number") }
-                }
+                })
             }
             .groupedRow()
 

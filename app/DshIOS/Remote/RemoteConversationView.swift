@@ -173,15 +173,23 @@ struct RemoteConversationView: View {
             model.notice = nil
             app.showToast(text, tone: .warning)
         })
-        .alert("出错了", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
+        .alert("出错了", isPresented: errorPresented) {
             Button("好", role: .cancel) {}
         } message: {
-            Text(model.error ?? "")
+            Text(model?.error ?? "")
         }
     }
 
-    private func takeoverMessage(_ enable: Bool, _ model: RemoteSessionModel) -> String {
-        guard enable else { return String(localized: "交还后这里只能查看，不能发消息。") }
+    /// 抽成计算属性：内联 `Binding(get:set:)` 加上 `model` 是 Optional，
+    /// 会让整条 `.alert(...)` 的类型推断超时。
+    private var errorPresented: Binding<Bool> {
+        Binding(
+            get: { model?.error != nil },
+            set: { if !$0 { model?.error = nil } }
+        )
+    }
+
+    private func takeoverMessage(_ enable: Bool, _ model: RemoteSessionModel) -> String {        guard enable else { return String(localized: "交还后这里只能查看，不能发消息。") }
         if model.meta?.agentType == "dsh" { return String(localized: "接管后可以从这里发消息，电脑上的对话会同步更新。") }
         return String(localized: "接管后可以从这里发消息。电脑上的客户端可能要重启才能看到新内容，请不要两边同时操作这个会话。")
     }

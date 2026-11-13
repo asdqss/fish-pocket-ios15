@@ -210,17 +210,16 @@ struct CompatLabeledContent<Content: View>: View {
 }
 
 extension CompatLabeledContent where Content == Text {
-    init<S: StringProtocol>(_ title: S, value: String) {
-        self.init(title) { Text(value) }
-    }
-
-    init<S: StringProtocol>(_ title: S, value: String?) {
-        self.init(title) { Text(value ?? "—") }
-    }
-
+    // ⚠️ 只保留**一个** `value:` 入口。同时存在 `value: String` 和
+    // `value: V where V: CustomStringConvertible` 时，传一个 `String` 变量
+    // 会因 `String` 自身满足 `CustomStringConvertible` 而两个候选都成立 →
+    // "ambiguous use of 'init(_:value:)'"（实测 17 处）。
+    // 泛型版能接住 `String` / `Int` / `Double` / `Bool` 全部，所以只用它。
+    // 没有 `value: String?` 重载：全仓的可选值在调用点都已 `?? "—"` 收口。
     init<S: StringProtocol, V: CustomStringConvertible>(_ title: S, value: V) {
         self.init(title) { Text(value.description) }
     }
+}
 
     init(_ title: LocalizedStringKey, value: String) {
         self.init(title) { Text(value) }
