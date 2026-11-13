@@ -219,15 +219,6 @@ extension CompatLabeledContent where Content == Text {
     init<S: StringProtocol, V: CustomStringConvertible>(_ title: S, value: V) {
         self.init(title) { Text(value.description) }
     }
-}
-
-    init(_ title: LocalizedStringKey, value: String) {
-        self.init(title) { Text(value) }
-    }
-
-    init(_ title: LocalizedStringKey, value: String?) {
-        self.init(title) { Text(value ?? "—") }
-    }
 
     init<V: CustomStringConvertible>(_ title: LocalizedStringKey, value: V) {
         self.init(title) { Text(value.description) }
