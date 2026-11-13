@@ -1,0 +1,171 @@
+# 给 iOS 16（TrollStore）打一个可安装的 arm64 IPA。
+#
+# 与上游 ios-build.yml 的区别：
+#   1. 打的是 generic/platform=iOS 的**真机包**，不是模拟器包；
+#   2. IPHONEOS_DEPLOYMENT_TARGET 覆盖成 16.0；
+#   3. 产出未签名 IPA，下回来后本地用 rcodesign 做 ad-hoc 重签再进 TrollStore。
+#
+# 本地没有 Xcode，所以这里把 GitHub 的 macOS runner 当编译器用。
+# 手动触发（workflow_dispatch），推分支不自动烧分钟。
+
+name: iOS 16 IPA
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_target:
+        description: "IPHONEOS_DEPLOYMENT_TARGET"
+        required: false
+        default: "16.0"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # Xcode 27 是这个工程实际的编译环境（上游与回退分支都在用它）。
+    # 要 16.0 的 SDK 就用 runner 自带的 iPhoneOS SDK，部署目标用命令行覆盖。
+    runs-on: xcode-27
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: engine/package-lock.json
+
+      - name: Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode_27.2.app
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i iphoneos || true
+
+      # ---- vendor：与上游完全相同的四步，缓存按脚本哈希 ----
+      - name: Cache nodejs-mobile
+        id: nodejs-mobile
+        uses: actions/cache@v5
+        with:
+          path: |
+            vendor/nodejs-mobile/ios
+            vendor/nodejs-mobile/rooted
+          key: nodejs-mobile-${{ hashFiles('scripts/fetch-nodejs-mobile.sh') }}
+
+      - name: Fetch nodejs-mobile
+        if: steps.nodejs-mobile.outputs.cache-hit != 'true'
+        run: scripts/fetch-nodejs-mobile.sh
+
+      - name: Cache Python
+        id: python
+        uses: actions/cache@v5
+        with:
+          path: |
+            vendor/python/ios
+            vendor/python/rooted
+          key: python-${{ hashFiles('scripts/fetch-python.sh') }}
+
+      - name: Fetch Python
+        if: steps.python.outputs.cache-hit != 'true'
+        run: scripts/fetch-python.sh
+
+      - name: Check NodeMobile imports
+        run: scripts/check-root-imports.sh
+
+      - name: Cache libgit2
+        id: libgit2
+        uses: actions/cache@v5
+        with:
+          path: |
+            vendor/libgit2/Libgit2.xcframework
+            vendor/libgit2/ios-arm64
+            vendor/libgit2/ios-arm64-simulator
+            vendor/libgit2/macos
+          key: libgit2-${{ runner.os }}-${{ hashFiles('scripts/build-libgit2.sh') }}
+
+      - name: Build libgit2
+        if: steps.libgit2.outputs.cache-hit != 'true'
+        run: |
+          command -v cmake >/dev/null || brew install cmake
+          scripts/build-libgit2.sh
+
+      - name: Cache FFmpeg
+        id: ffmpeg
+        uses: actions/cache@v5
+        with:
+          path: vendor/ffmpeg/FFmpeg.xcframework
+          key: ffmpeg-${{ runner.os }}-${{ hashFiles('scripts/fetch-ffmpeg.sh', 'scripts/build-ffmpeg.sh', 'native/ffmpeg/**') }}
+
+      - name: Fetch FFmpeg
+        if: steps.ffmpeg.outputs.cache-hit != 'true'
+        run: scripts/fetch-ffmpeg.sh
+
+      - name: Assemble engine
+        run: scripts/build-engine.sh
+
+      - name: Generate project
+        run: |
+          command -v xcodegen >/dev/null || brew install xcodegen
+          cd app && xcodegen generate --quiet
+
+      # ---- 真机编译（arm64，不签名）----
+      - name: Compile (iOS 16.0 device, no signing)
+        working-directory: app
+        env:
+          TARGET_OS_VER: ${{ inputs.deployment_target || '16.0' }}
+        run: |
+          set -o pipefail
+          xcodebuild -project DshIOS.xcodeproj -scheme DshIOS \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DD -skipPackagePluginValidation \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            IPHONEOS_DEPLOYMENT_TARGET="$TARGET_OS_VER" \
+            build 2>&1 | tee /tmp/build.log
+          echo "==== error 汇总 ===="
+          grep -E ": error: " /tmp/build.log | sed 's|.*/app/|app/|' | sort -u | head -100 || true
+          errors=$(grep -cE ": error: " /tmp/build.log || true)
+          echo "error 行数: ${errors:-0}"
+          [ "${errors:-0}" -eq 0 ]
+
+      - name: Collect diagnostics
+        if: failure()
+        run: |
+          echo "==== is only available ===="
+          grep -hoE "'[^']+' is only available in iOS [0-9.]+ or newer" /tmp/build.log | sort | uniq -c | sort -rn | head -50 || true
+          echo "==== 出错文件 ===="
+          grep -hoE "/[^ ]+\.swift:[0-9]+:[0-9]+: error:" /tmp/build.log | sed 's|.*/app/|app/|' | cut -d: -f1 | sort | uniq -c | sort -rn | head -40 || true
+          echo "==== 明细 ===="
+          grep -E ": error: " /tmp/build.log | sed 's|.*/app/|app/|' | sort -u | head -200 || true
+
+      - name: Pack unsigned IPA
+        working-directory: app
+        run: |
+          APPDIR=$(find build/DD/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' | head -1)
+          echo "app: $APPDIR"
+          ls -la "$APPDIR"
+          mkdir -p out/Payload
+          cp -R "$APPDIR" out/Payload/
+          cd out
+          # zip 用正斜杠条目；IPA 只要 Payload/ 在最外层
+          zip -qry ../FishPocket-ios16-unsigned.ipa Payload
+          ls -la ../FishPocket-ios16-unsigned.ipa
+          # 顺便核对一下主二进制的最低版本
+          plutil -p "Payload/$(basename "$APPDIR")/Info.plist" | grep -i minimumosversion || true
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: fishpocket-ios16-ipa
+          path: app/FishPocket-ios16-unsigned.ipa
+          retention-days: 7
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: /tmp/build.log
+          retention-days: 7
+          if-no-files-found: ignore

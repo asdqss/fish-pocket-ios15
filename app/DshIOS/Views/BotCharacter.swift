@@ -335,6 +335,8 @@ struct BotMark: View {
     var ringed = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var act: Act?
+    /// iOS 16 只有 `onChange` 单参版本，这里自己记上一次的 mood 来还原 old/new。
+    @State private var lastMood = BotMood.idle
 
     /// A move played once, over whatever the mood does: a happy hop as a run ends, two hops as
     /// a question arrives, a spin when poked.
@@ -362,7 +364,14 @@ struct BotMark: View {
         .frame(width: size, height: size)
         .allowsHitTesting(false)
         .onAppear { if mood == .alert { act = Act(kind: .hops) } }
-        .onChange(of: mood) { old, new in turned(from: old, to: new) }
+        // iOS 17 的 `onChange(of:) { old, new in }` 在 16.0 上只有单参版本：
+        // 自己记上一次的 mood，就能还原 old/new。
+        .onAppear { lastMood = mood }
+        .onChange(of: mood) { new in
+            let old = lastMood
+            lastMood = new
+            turned(from: old, to: new)
+        }
         .onChange(of: poke) { act = Act(kind: .poke) }
         .task(id: act) { await finishAct() }
     }

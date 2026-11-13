@@ -217,11 +217,11 @@ struct ConversationView: View {
         }
         .modifier(ComposerDrop(composer: model.composer, enabled: model.subagentReadOnly(parentAvailable: parentAvailable(model)) == nil))
         // Under the toolbar: what is inside an inspector's main view does not reach the navigation bar.
-        .inspector(isPresented: workbenchShown(sizeClass == .regular)) {
+        .compatInspector(isPresented: workbenchShown(sizeClass == .regular)) {
             // Only where it is shown: on a phone this content stays built while closed, and its
             // toolbar lands in the conversation's bar.
             if sizeClass == .regular {
-                workbenchPage(model).inspectorColumnWidth(min: 320, ideal: 420, max: 640)
+                workbenchPage(model).compatInspectorColumnWidth(min: 320, ideal: 420, max: 640)
             }
         }
         // It names the window in the iPad app switcher. Not drawn while the title is the principal

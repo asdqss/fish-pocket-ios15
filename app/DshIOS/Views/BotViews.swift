@@ -675,15 +675,21 @@ struct BotLookPreview: View {
     let color: String?
     var mood = BotMood.idle
     @State private var poke = 0
+    /// iOS 17 的 `.phaseAnimator([false, true], trigger:)` 在 16.0 上不存在，
+    /// 用同一个布尔手动跑「弹出 → 弹回」两段弹簧。
+    @State private var popped = false
+
+    private var look: String { "\(shape ?? "")|\(color ?? "")" }
 
     var body: some View {
         Button { Haptics.tap(); poke += 1 } label: {
             BotMark(character: BotCharacter.named(shape) ?? BotCharacter.all[0], color: BotInk.color(color) ?? Palette.secondary, size: 104,
                     mood: mood, lively: true, seed: shape ?? "", poke: poke)
-                .phaseAnimator([false, true], trigger: [shape, color]) { mark, popped in
-                    mark.scaleEffect(popped ? 1.14 : 1).rotationEffect(.degrees(popped ? -9 : 0))
-                } animation: { popped in
-                    popped ? .spring(response: 0.16, dampingFraction: 0.7) : .spring(response: 0.42, dampingFraction: 0.42)
+                .scaleEffect(popped ? 1.14 : 1)
+                .rotationEffect(.degrees(popped ? -9 : 0))
+                .onChange(of: look) { _ in
+                    withAnimation(.spring(response: 0.16, dampingFraction: 0.7)) { popped = true }
+                    withAnimation(.spring(response: 0.42, dampingFraction: 0.42).delay(0.16)) { popped = false }
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)

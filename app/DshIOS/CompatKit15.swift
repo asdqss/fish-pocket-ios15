@@ -448,32 +448,11 @@ enum CompatRegex15 {
 }
 
 // MARK: - onChange(of:initial:_:)（iOS 17）
-
-extension View {
-    /// 15.6 的 `onChange(of:perform:)` 只给新值、也不带「先跑一次」。
-    /// 这两个重载把 17 的调用点原样接住：`initial: true` 在出现时先跑一次。
-    func onChange<V: Equatable>(of value: V, initial: Bool = false,
-                                _ action: @escaping (V) -> Void) -> some View {
-        modifier(CompatOnChange(value: value, initial: initial, action: { new, _ in action(new) }))
-    }
-
-    func onChange<V: Equatable>(of value: V, initial: Bool = false,
-                                _ action: @escaping (V, V) -> Void) -> some View {
-        modifier(CompatOnChange(value: value, initial: initial, action: action))
-    }
-}
-
-struct CompatOnChange<V: Equatable>: ViewModifier {
-    let value: V
-    let initial: Bool
-    let action: (V, V) -> Void
-
-    func body(content: Content) -> some View {
-        content
-            .onAppear { if initial { action(value, value) } }
-            .onChange(of: value) { new in action(new, new) }
-    }
-}
+//
+// 真正的实现在 Views/Compat15.swift 的 `compatChange`（调用点已全部改用它）。
+// 这里原本有一份**同名**的 `func onChange(of:initial:_:)` 扩展，会与系统
+// `onChange(of:perform:)` 在调用点产生歧义（编译器无法在单参闭包上二选一），
+// 而且全仓没有任何调用者，所以删掉。
 
 // MARK: - Path.union(_:eoFill:)（iOS 17）
 
@@ -539,5 +518,33 @@ struct CompatTextField: View {
                     .allowsHitTesting(false)
             }
         }
+    }
+}
+
+// MARK: - inspector（iOS 17）
+
+/// 替 `.inspector(isPresented:content:)`：iOS 17 才有右侧常驻面板。
+/// 15.6 / 16.0 上落到 `HStack` —— 内容放在主视图右边、按 `idealWidth` 固定宽度。
+/// 少掉的是：可拖动的分隔条、`.inspectorColumnWidth` 的 min/max 拉伸、
+/// 以及 inspector 独立于主视图的滚动位置。
+///
+/// 与原生一样，`isPresented` 为 false 时**不构建内容**，
+/// 这样里面的 toolbar 不会漏到主视图的导航栏上。
+extension View {
+    @ViewBuilder
+    func compatInspector<V: View>(isPresented: Bool,
+                                  @ViewBuilder content: @escaping () -> V) -> some View {
+        HStack(spacing: 0) {
+            self
+            if isPresented {
+                Divider()
+                content()
+            }
+        }
+    }
+
+    /// 替 `.inspectorColumnWidth(min:ideal:max:)`：`HStack` 布局下只认 `ideal`。
+    func compatInspectorColumnWidth(min: CGFloat = 0, ideal: CGFloat, max: CGFloat = .infinity) -> some View {
+        frame(minWidth: min, idealWidth: ideal, maxWidth: max)
     }
 }

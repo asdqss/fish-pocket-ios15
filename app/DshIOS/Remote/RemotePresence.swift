@@ -23,11 +23,22 @@ final class RemotePresence {
 
     private func observe() {
         guard let app else { return }
+        #if DSH_IOS15_BACKPORT
+        // 15.6 / 16.0：没有 `withObservationTracking`（iOS 17），用 1 秒轮询重看这两项。
+        // 只在 AppModel 还活着时继续（weak self），和快照写入器的做法一致。
+        announce(app.remote.attention, requests: app.remote.requests, in: app)
+        app.remoteWorkChanged()
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            self?.observe()
+        }
+        #else
         let (attention, requests) = withObservationTracking { (app.remote.attention, app.remote.requests) } onChange: { [weak self] in
             Task { @MainActor in self?.observe() }
         }
         app.remoteWorkChanged()
         announce(attention, requests: requests, in: app)
+        #endif
     }
 
     /// A request waits where the user is not looking: in the app a toast with the way there;

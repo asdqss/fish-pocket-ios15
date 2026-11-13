@@ -2,10 +2,15 @@ name: DshIOS
 options:
   bundleIdPrefix: com.wsw
   deploymentTarget:
-    # yg: 回退到 iOS 15.6（原 17.0）。见 docs/backport/ios15-plan.md
-    iOS: "15.6"
+    # yg: 回退到 iOS 16.0（上游 17.0，回退分支原为 15.6）。
+    # 目标是 TrollStore 的 iOS 16 设备，所以取 16.0 而不是 15.6：
+    # 回退分支里那批「iOS 16 原生就有」的替身（LabeledContent / ShareLink /
+    # NavigationStack / Chart / GridRow / ImageRenderer / navigationDestination /
+    # .toolbar(_:for:)）会随部署目标提到 16.0 自动走原生实现。
+    iOS: "16.0"
     # The watch app (DshWatch): what an iPhone on iOS 17 pairs with.
-    # iOS 15.6 设备不配对 watchOS 10 应用，watch target 仍保留以不破坏上游工程结构。
+    # iOS 16 设备配对的是 watchOS 9，watchOS 10 需要 iOS 17 配对。
+    # watch target 仍保留以不破坏上游工程结构，但不再嵌进 iPhone App。
     watchOS: "10.0"
   createIntermediateGroups: true
   # The String Catalogs' source language: the UI is written in Chinese (Shared/Localizable.xcstrings).
@@ -128,9 +133,14 @@ targets:
       - sdk: libiconv.tbd
       - package: SwiftTerm
       - package: SwiftMath
-      - target: DshLiveActivity
+      # yg/ios16：LiveActivity 与 Watch 在 iOS 16 上都用不了，整块不嵌进 App。
+      # - LiveActivity 需要 DynamicIsland（ActivityKit 16.1+）与 iOS 17 的
+      #   `withObservationTracking`；iOS 16 设备拿到它也没有呈现位置。
+      # - Watch App 是 watchOS 10，只与 iOS 17 配对；iOS 16 配的是 watchOS 9。
+      #   target 保留在工程里（不破坏上游结构），但不再作为 iPhone App 的依赖。
+      # - target: DshLiveActivity
       # The watch app rides inside the iPhone app and is installed with it.
-      - target: DshWatch
+      # - target: DshWatch
     postBuildScripts:
       # CPython's standard library into the bundle (python/lib), and each extension
       # module turned into a framework under Frameworks, as App Store binaries must be:
@@ -212,7 +222,9 @@ targets:
         UIBackgroundModes: [audio]
         BGTaskSchedulerPermittedIdentifiers: ["$(PRODUCT_BUNDLE_IDENTIFIER).task.*"]
         # Agent status on the lock screen and in the Dynamic Island (LiveActivityController).
-        NSSupportsLiveActivities: true
+        # yg/ios16：LiveActivity target 已不嵌入，这里同步关掉，
+        # 否则安装器会去找一个不存在的 widget extension。
+        # NSSupportsLiveActivities: true
         # dsh://session/<id> and dsh://new: the Live Activity and the widgets (Shared/DshLink.swift).
         CFBundleURLTypes:
           - CFBundleURLName: com.wsw.dsh-ios

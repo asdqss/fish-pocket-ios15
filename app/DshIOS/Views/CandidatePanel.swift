@@ -322,6 +322,8 @@ struct CandidateSheet: View {
 /// with their upload state; a failed card retries on tap, ✕ removes.
 struct AttachmentRail: View {
     let composer: ComposerModel
+    /// iOS 16 只有 `onChange` 单参版本：上一次的附件数量记在这里。
+    @State private var lastAttachmentCount = 0
 
     var body: some View {
         if !composer.attachments.isEmpty {
@@ -343,7 +345,11 @@ struct AttachmentRail: View {
                     .padding(.top, 4)
                     .padding(.trailing, 4)
                 }
-                .onChange(of: composer.attachments.count) { old, new in
+                .onAppear { lastAttachmentCount = composer.attachments.count }
+                .onChange(of: composer.attachments.count) { new in
+                    // iOS 16 只有单参 `onChange`：上一次的数量自己记。
+                    let old = lastAttachmentCount
+                    lastAttachmentCount = new
                     if new > old, let last = composer.attachments.last { withAnimation { proxy.scrollTo(last.id, anchor: .trailing) } }
                 }
             }
