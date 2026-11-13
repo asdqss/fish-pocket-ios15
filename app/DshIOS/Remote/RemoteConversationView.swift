@@ -145,7 +145,7 @@ struct RemoteConversationView: View {
         // Archived from here or from another device: the main view moves on, as with a local session.
         .onChange(of: model.meta?.archived, perform: { archived in if archived == true { selection = nil } })
         // Read once it is on screen, and again when a turn ends while it is.
-        .compatChange(of: "\(model.meta?.unread == true)-\(scenePhase == .active)", initial: true) {
+        .compatChange(of: readKey, initial: true) { _ in
             if scenePhase == .active { app.remote.markRead(sessionId) }
         }
         .sheet(item: interactionBinding(model)) { sheet(for: $0, model) }
@@ -192,6 +192,14 @@ struct RemoteConversationView: View {
     /// 同理，`Text(model?.error ?? "")` 内联也会拖慢推断，先取值再进 ViewBuilder。
     private var errorText: String {
         model?.error ?? ""
+    }
+
+    /// 「未读数 + 前台状态」的合并 key。内联字符串插值里带 Optional 链
+    /// 会让整条 `compatChange(...)` 的类型推断超时，抽出来。
+    private var readKey: String {
+        let unread = model?.meta?.unread == true
+        let active = scenePhase == .active
+        return "\(unread)-\(active)"
     }
 
     private func takeoverMessage(_ enable: Bool, _ model: RemoteSessionModel) -> String {        guard enable else { return String(localized: "交还后这里只能查看，不能发消息。") }
