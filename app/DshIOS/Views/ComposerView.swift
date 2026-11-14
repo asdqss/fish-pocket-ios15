@@ -389,7 +389,10 @@ struct ComposerView: View {
         // 早先这里用 `CompatTextField`（内部是 `TextEditor`）是错的：`TextEditor` 没有
         // 「随内容增高、到上限就滚动」的语义，默认还会吃满父容器的一整屏高度，
         // 真机上表现为「输入框占满整个页面、会话看不见」。
-        return TextField(placeholder, text: Bindable(composer).text, axis: .vertical)
+        return TextField(placeholder, text: Binding(
+            get: { composer.text },
+            set: { composer.text = $0 }
+        ), axis: .vertical)
             .font(.callout)
             .lineLimit(1...5)
             .focused($focused)
