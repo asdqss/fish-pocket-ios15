@@ -44,6 +44,38 @@ find "$nm" -type d \( -name test -o -name tests -o -name __tests__ -o -name docs
 { find "$nm" -type f -size +1k -print0 | xargs -0 file --mime-type 2>/dev/null | grep -E 'application/x-(mach-binary|executable|sharedlib)' || true; } | cut -d: -f1 | while read -r f; do rm -f "$f"; done
 # Bin links into what was pruned above: a dangling link in the bundle fails App Store validation.
 find "$nm" -type l ! -exec test -e {} \; -delete
+
+# `file:` dependencies install as symlinks (package-lock records `"link": true`).
+# A symlink survives the macOS build but does NOT survive being packed into an IPA
+# from Windows — the zip ends up holding a 45-byte text file whose contents are the
+# link target, and Node then reports
+#   SyntaxError: Unexpected token '.'   at node_modules/<name>:1
+# So replace every remaining symlink under node_modules with a real copy.
+# node_modules is fully self-contained here (nothing links outside it), so a
+# dereferencing copy is safe; `-L` makes cp follow links and copy the real files.
+if find "$nm" -type l | grep -q .; then
+  echo "build-engine: dereferencing symlinks in node_modules" >&2
+  find "$nm" -type l | while read -r link; do
+    [ -e "$link" ] || continue
+    real="$(readlink -f "$link")"
+    case "$real" in
+      "$nm"/*) ;;
+      *) echo "build-engine: $link points outside node_modules ($real); leaving it" >&2; continue ;;
+    esac
+    tmp="${link}.deref-tmp"
+    rm -rf "$tmp"
+    if [ -d "$real" ]; then
+      cp -RL "$real" "$tmp"
+    else
+      cp -L "$real" "$tmp"
+    fi
+    rm -f "$link"
+    mv "$tmp" "$link"
+  done
+fi
+find "$nm" -type l | while read -r link; do
+  echo "build-engine: symlink still present after dereference: $link" >&2
+done
 # Apache-2.0 notices a bundled package leaves out of its npm tarball ship beside it.
 for notice in "$src"/notices/*.NOTICE; do
   [ -e "$notice" ] || continue
