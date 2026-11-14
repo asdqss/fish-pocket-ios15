@@ -737,10 +737,10 @@ struct BotCreateSheet: View {
                     .pickerValueTint()
                 }
                 Section {
-                    CompatTextField("它做事时要遵守的要求、偏好和背景", text: $instructions)
+                    TextField("它做事时要遵守的要求、偏好和背景", text: $instructions, axis: .vertical)
                 } header: { Text("工作说明（可不填）") }
                 Section {
-                    CompatTextField("比如：帮我整理这周的行业新闻", text: $brief)
+                    TextField("比如：帮我整理这周的行业新闻", text: $brief, axis: .vertical)
                 } header: { Text("先交给它一件事（可不填）") } footer: {
                     Text("不填的话，新 Bot 会先打个招呼。之后可以私聊，也可以拉进群。")
                 }
@@ -820,7 +820,7 @@ struct RoomCreateSheet: View {
                         .pickerValueTint()
                     } footer: { Text("你发的消息先交给群主，群主再点名需要的成员。建好后还能改。") }
                     Section {
-                        CompatTextField("比如：大家一起把下周的发布计划过一遍", text: $first)
+                        TextField("比如：大家一起把下周的发布计划过一遍", text: $first, axis: .vertical)
                     } header: { Text("第一句话（可不填）") } footer: { Text("不填的话，成员们会先打个招呼。") }
                 }
             }

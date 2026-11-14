@@ -101,7 +101,7 @@ struct MemoryAskSection: View {
     var body: some View {
         Section {
             HStack(spacing: 8) {
-                CompatTextField("问它记得什么，或者让它记住、忘掉什么", text: $text)
+                TextField("问它记得什么，或者让它记住、忘掉什么", text: $text, axis: .vertical)
                 if asking { ProgressView() } else {
                     Button { ask() } label: { Image(systemName: "arrow.up.circle.fill").font(.title2) }
                         .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -397,7 +397,7 @@ struct GoalDraftSheet: View {
         NavigationStack {
             Form {
                 Section {
-                    CompatTextField("这个群要达成什么？", text: $text)
+                    TextField("这个群要达成什么？", text: $text, axis: .vertical)
                 } footer: {
                     Text("群主会先问你几个关键问题，确认后拆成阶段，分给成员去做。")
                 }

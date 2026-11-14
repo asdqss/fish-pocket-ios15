@@ -384,10 +384,12 @@ struct ComposerView: View {
         let threeLines = UIFont.preferredFont(forTextStyle: .callout).lineHeight * 3.5
         // `model` 是 `let`、`composer` 是计算属性 → 没有 `$composer` 这种投影。
         // 手写 Binding 接到 `ComposerModel` 这个引用类型的 `text` 上。
-        return CompatTextField(placeholder, text: Binding(
-            get: { composer.text },
-            set: { composer.text = $0 }
-        ))
+        // `TextField(_:text:axis:)` 与 `lineLimit(_: ClosedRange)` 都是 iOS 16.0 原生 API，
+        // 部署目标就是 16.0，不需要兼容层。
+        // 早先这里用 `CompatTextField`（内部是 `TextEditor`）是错的：`TextEditor` 没有
+        // 「随内容增高、到上限就滚动」的语义，默认还会吃满父容器的一整屏高度，
+        // 真机上表现为「输入框占满整个页面、会话看不见」。
+        return TextField(placeholder, text: Bindable(composer).text, axis: .vertical)
             .font(.callout)
             .lineLimit(1...5)
             .focused($focused)

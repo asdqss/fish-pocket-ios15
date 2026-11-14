@@ -588,41 +588,6 @@ extension View {
 }
 #endif  // DSH_IOS15_LEGACY
 
-// MARK: - TextField(_, text:, axis:)（iOS 16）
-
-/// 替 `TextField(_:text:axis: .vertical)`：15.6 的多行输入只有 `TextEditor`，
-/// 占位文字自己画。高度随内容长，外面仍可用 `.frame` 或容器约束。
-struct CompatTextField: View {
-    private let title: Text
-    @Binding private var text: String
-    private var minHeight: CGFloat = 34
-
-    init(_ titleKey: LocalizedStringKey, text: Binding<String>) {
-        self.title = Text(titleKey)
-        self._text = text
-    }
-
-    init(_ title: String, text: Binding<String>) {
-        self.title = Text(title)
-        self._text = text
-    }
-
-    var body: some View {
-        ZStack(alignment: .topLeading) {
-            TextEditor(text: $text)
-                .frame(minHeight: minHeight)
-                .scrollContentBackground(.hidden)
-            if text.isEmpty {
-                title
-                    .foregroundStyle(.tertiary)
-                    .padding(.top, 8)
-                    .padding(.leading, 5)
-                    .allowsHitTesting(false)
-            }
-        }
-    }
-}
-
 // MARK: - inspector（iOS 17）
 
 /// 替 `.inspector(isPresented:content:)`：iOS 17 才有右侧常驻面板。

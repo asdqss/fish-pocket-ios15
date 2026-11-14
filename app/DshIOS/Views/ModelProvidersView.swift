@@ -376,7 +376,7 @@ private struct DraftTextField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title).font(.caption).foregroundStyle(Palette.secondary)
-            CompatTextField(placeholder, text: text)
+            TextField(placeholder, text: text, axis: .vertical)
                 .keyboardType(keyboard)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
