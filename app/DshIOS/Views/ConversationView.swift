@@ -128,6 +128,7 @@ struct ConversationView: View {
         return true
     }
 
+
     /// 提示里用谁的名字：按 sessionId 反查 Bot 或群聊。
     /// 不用 `botComposer` 环境值——它是 `TimelineList` 等子视图的，`ConversationView` 上没有。
     private var emptyChatName: String? {
@@ -152,12 +153,33 @@ struct ConversationView: View {
                 // 所以没有 hero 引导。全新安装第一次进 Bot 时整个区域会一片空白，
                 // 用户不知道是不是卡住了。这里补一句提示，只在真的一条消息都没有时出现。
                 if showsEmptyChatHint(model) {
-                    EmptyChatHint(name: emptyChatName)
-                        .padding(.top, 60)
+                    EmptyChatHint(
+                        name: emptyChatName,
+                        sessionId: sessionId,
+                        loaded: model.loaded,
+                        itemCount: model.items.count,
+                        liveCount: model.live.count,
+                        errorText: model.error
+                    )
+                    .padding(.top, 60)
                 }
                 TimelineList(model: model)
                     .modifier(LinkOpening())
                 Color.clear.frame(height: 1).id(Self.bottomId)
+            }
+            // 上游在首读未回时盖一层骨架（`ConversationLoading`），空白页会让人以为卡住。
+            // 本地没有那个文件，用等价的简短占位；`loaded` 之后自然消失。
+            .overlay {
+                ZStack {
+                    if !model.loaded && app.sessions[sessionId]?.blank != true {
+                        ProgressView()
+                            .controlSize(.regular)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(Palette.background)
+                            .transition(.opacity)
+                    }
+                }
+                .animation(.easeOut(duration: 0.2), value: model.loaded)
             }
             .environment(\.timelineScroll, TimelineScroll(keep: { id in
                 Task { @MainActor in
@@ -214,6 +236,16 @@ struct ConversationView: View {
         }
         .background(Palette.background)
         .overlay { if blank { hero(model) } }
+        // 排障用：真机上导出日志很麻烦，先让界面把时间线的真实状态说出来。
+        // 一行极小字，不挡任何交互；确认根因后删掉这个 overlay。
+        .overlay(alignment: .topLeading) {
+            Text("items=\(model.items.count) live=\(model.live.count) loaded=\(model.loaded ? 1 : 0) run=\(model.running ? 1 : 0) more=\(model.hasMoreHistory ? 1 : 0)")
+                .font(.system(size: 9, design: .monospaced))
+                .foregroundStyle(Palette.secondary.opacity(0.55))
+                .padding(.leading, 6)
+                .padding(.top, 2)
+                .allowsHitTesting(false)
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 if blank && !composerFocused && model.composer.isEmpty {
@@ -718,6 +750,12 @@ extension SessionModel {
 /// 不解释的话用户看到的就是一整片空白 + 输入框，分不清是「还没说话」还是「卡住了」。
 struct EmptyChatHint: View {
     let name: String?
+    /// 诊断用：真实的加载状态。真机上导出日志很麻烦，所以让界面自己说出来。
+    var sessionId: String = ""
+    var loaded: Bool = false
+    var itemCount: Int = 0
+    var liveCount: Int = 0
+    var errorText: String?
 
     /// 有名字就用名字，没有就退成通用说法。
     private var line: String {
@@ -726,6 +764,13 @@ struct EmptyChatHint: View {
         } else {
             String(localized: "还没有对话。在下面发一条消息开始。")
         }
+    }
+
+    private var diagnostic: String {
+        var parts = ["loaded=\(loaded)", "items=\(itemCount)", "live=\(liveCount)"]
+        if sessionId.isEmpty { parts.append("sessionId=(空)") } else { parts.append("session=\(sessionId.suffix(8))") }
+        if let errorText, !errorText.isEmpty { parts.append("错误: \(errorText.prefix(80))") }
+        return parts.joined(separator: "\n")
     }
 
     var body: some View {
@@ -738,6 +783,12 @@ struct EmptyChatHint: View {
                 .foregroundStyle(Palette.secondary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(3)
+            // 只有这一句是真的空态文案；下面这行是排障证据，等确认根因后删掉。
+            Text(diagnostic)
+                .font(.caption2.monospaced())
+                .foregroundStyle(Palette.secondary.opacity(0.7))
+                .multilineTextAlignment(.center)
+                .lineSpacing(2)
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 40)
@@ -756,7 +807,9 @@ private struct TimelineList: View {    let model: SessionModel
         let items = bot.map { bot in model.items.filter { !bot.hides($0) } } ?? model.items
         let lastAssistant = items.last { if case .assistant = $0 { true } else { false } }?.id
         // The turn being worked on: the streamed attempt joins it, under one step line (as the web does).
-        let activeTurn: String? = if model.running, case .assistant? = items.last { items.last?.id } else { nil }
+        // A turn that has ended is not it: right after a send the session already runs while the new
+        // message is still on its way, and the last reply would open up as if it were being written.
+        let activeTurn: String? = if model.running, case .assistant(_, _, _, nil)? = items.last { items.last?.id } else { nil }
         // Not lazy: a lazy stack estimates the heights of rows it has not laid out, and when a long
         // timeline grows the estimate leaves the bottom-anchored viewport past the real end (a blank page
         // after sending). The snapshot holds only the recent history and rows skip unchanged redraws.
