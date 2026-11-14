@@ -54,8 +54,7 @@ jobs:
 
       - name: Fetch nodejs-mobile
         if: steps.nodejs-mobile.outputs.cache-hit != 'true'
-        run: scripts/fetch-nodejs-mobile.sh
-
+        run: bash scripts/fetch-nodejs-mobile.sh
       - name: Cache Python
         id: python
         uses: actions/cache@v5
@@ -67,11 +66,9 @@ jobs:
 
       - name: Fetch Python
         if: steps.python.outputs.cache-hit != 'true'
-        run: scripts/fetch-python.sh
-
+        run: bash scripts/fetch-python.sh
       - name: Check NodeMobile imports
-        run: scripts/check-root-imports.sh
-
+        run: bash scripts/check-root-imports.sh
       - name: Cache libgit2
         id: libgit2
         uses: actions/cache@v5
@@ -87,8 +84,7 @@ jobs:
         if: steps.libgit2.outputs.cache-hit != 'true'
         run: |
           command -v cmake >/dev/null || brew install cmake
-          scripts/build-libgit2.sh
-
+          bash scripts/build-libgit2.sh
       - name: Cache FFmpeg
         id: ffmpeg
         uses: actions/cache@v5
@@ -98,11 +94,9 @@ jobs:
 
       - name: Fetch FFmpeg
         if: steps.ffmpeg.outputs.cache-hit != 'true'
-        run: scripts/fetch-ffmpeg.sh
-
+        run: bash scripts/fetch-ffmpeg.sh
       - name: Assemble engine
-        run: scripts/build-engine.sh
-
+        run: bash scripts/build-engine.sh
       - name: Generate project
         run: |
           command -v xcodegen >/dev/null || brew install xcodegen
