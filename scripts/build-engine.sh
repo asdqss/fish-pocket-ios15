@@ -51,16 +51,19 @@ find "$nm" -type l ! -exec test -e {} \; -delete
 # link target, and Node then reports
 #   SyntaxError: Unexpected token '.'   at node_modules/<name>:1
 # So replace every remaining symlink under node_modules with a real copy.
-# node_modules is fully self-contained here (nothing links outside it), so a
-# dereferencing copy is safe; `-L` makes cp follow links and copy the real files.
+#
+# The target does NOT have to live inside node_modules: `file:./shims/x` links to
+# `../shims/x`, which is still inside the bundle (`$out`) and is exactly the case
+# that matters. Anything pointing outside `$out` would be dropped from the IPA
+# anyway, so leave those alone and say so.
 if find "$nm" -type l | grep -q .; then
   echo "build-engine: dereferencing symlinks in node_modules" >&2
   find "$nm" -type l | while read -r link; do
     [ -e "$link" ] || continue
     real="$(readlink -f "$link")"
     case "$real" in
-      "$nm"/*) ;;
-      *) echo "build-engine: $link points outside node_modules ($real); leaving it" >&2; continue ;;
+      "$out"/*) ;;
+      *) echo "build-engine: $link points outside the bundle ($real); leaving it" >&2; continue ;;
     esac
     tmp="${link}.deref-tmp"
     rm -rf "$tmp"
@@ -76,6 +79,12 @@ fi
 find "$nm" -type l | while read -r link; do
   echo "build-engine: symlink still present after dereference: $link" >&2
 done
+# A bundle that still carries a link is exactly what broke the first device build:
+# fail here rather than ship an IPA that dies with a SyntaxError on launch.
+if find "$nm" -type l | grep -q .; then
+  echo "build-engine: node_modules still has symlinks; refusing to ship" >&2
+  exit 1
+fi
 # Apache-2.0 notices a bundled package leaves out of its npm tarball ship beside it.
 for notice in "$src"/notices/*.NOTICE; do
   [ -e "$notice" ] || continue
