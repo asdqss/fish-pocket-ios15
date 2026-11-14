@@ -633,28 +633,42 @@ struct CompatTextField: View {
 /// 与原生一样，`isPresented` 为 false 时**不构建内容**，
 /// 这样里面的 toolbar 不会漏到主视图的导航栏上。
 extension View {
+    /// 替 `.inspector(isPresented:content:)`（iOS 17）。
+    ///
+    /// ⚠️ 不要在这里套 `HStack`。系统 `.inspector` 在 iPhone 上什么都不做，
+    /// 只是把 `self` 原样返回；而套一层 `HStack` 会让 `self`（整个聊天页，含
+    /// `ScrollView` + `safeAreaInset`）失去"撑满父容器"的语义：
+    /// `ScrollView` 在 `HStack` 里高度收缩到内容高度（空会话为 0），
+    /// 于是 `safeAreaInset` 的输入框被推到整屏——真机上就是"输入框占满页面、
+    /// 会话内容看不见"。所以未展开时直接返回 `self`，不引入新容器。
     @ViewBuilder
     func compatInspector<V: View>(isPresented: Bool,
                                   @ViewBuilder content: @escaping () -> V) -> some View {
-        HStack(spacing: 0) {
-            self
-            if isPresented {
+        if isPresented {
+            HStack(spacing: 0) {
+                self
                 Divider()
                 content()
             }
+        } else {
+            self
         }
     }
 
     /// 接受 `Binding<Bool>` 的版本：上游 `.inspector(isPresented:)` 收的就是 Binding，
     /// 大部分调用点传的是 `workbenchShown(...)` 这类计算出来的 Binding。
+    /// 同样：关闭时直接返回 `self`，不套 `HStack`。
+    @ViewBuilder
     func compatInspector<V: View>(isPresented: Binding<Bool>,
                                   @ViewBuilder content: @escaping () -> V) -> some View {
-        HStack(spacing: 0) {
-            self
-            if isPresented.wrappedValue {
+        if isPresented.wrappedValue {
+            HStack(spacing: 0) {
+                self
                 Divider()
                 content()
             }
+        } else {
+            self
         }
     }
 

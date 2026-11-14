@@ -114,6 +114,33 @@ struct ConversationView: View {
         bot == nil && model.subagentAddress == nil && model.loaded && model.items.isEmpty && model.live.isEmpty && !model.running
     }
 
+    // MARK: - 空会话提示
+    //
+    // `isBlank` 要求 `bot == nil`，所以 Bot 聊天页永远不会走 hero 引导分支。
+    // 全新安装第一次点进 Bot 时，会话是空的、`BotPending` 也没东西可画，
+    // 整页只剩一个输入框——用户会以为「卡住了 / 没有回答」。
+    // 这里补一句明确的空态，只在真的一条消息都没有时出现。
+
+    /// 只有 Bot / 群聊页、已加载完、一条消息都没有、且不在跑的时候才提示。
+    private func showsEmptyChatHint(_ model: SessionModel) -> Bool {
+        guard bot != nil, model.loaded, !model.running else { return false }
+        if !model.items.isEmpty || !model.live.isEmpty { return false }
+        return true
+    }
+
+    /// 提示里用谁的名字：按 sessionId 反查 Bot 或群聊。
+    /// 不用 `botComposer` 环境值——它是 `TimelineList` 等子视图的，`ConversationView` 上没有。
+    private var emptyChatName: String? {
+        let team = app.botTeam
+        if let hit = team.bots.first(where: { $0.sessionId == sessionId }), !hit.name.isEmpty {
+            return hit.name
+        }
+        if let hit = team.rooms.first(where: { $0.sessionId == sessionId }), !hit.name.isEmpty {
+            return hit.name
+        }
+        return nil
+    }
+
     @ViewBuilder
     private func content(_ model: SessionModel) -> some View {
         let blank = isBlank(model)
@@ -121,6 +148,13 @@ struct ConversationView: View {
         let started = !blank && model.subagentAddress == nil && !(!model.loaded && app.sessions[sessionId]?.blank == true)
         ScrollViewReader { proxy in
             ScrollView {
+                // 空会话兜底：Bot 聊天页的 `isBlank` 恒为 false（它要求 bot == nil），
+                // 所以没有 hero 引导。全新安装第一次进 Bot 时整个区域会一片空白，
+                // 用户不知道是不是卡住了。这里补一句提示，只在真的一条消息都没有时出现。
+                if showsEmptyChatHint(model) {
+                    EmptyChatHint(name: emptyChatName)
+                        .padding(.top, 60)
+                }
                 TimelineList(model: model)
                     .modifier(LinkOpening())
                 Color.clear.frame(height: 1).id(Self.bottomId)
@@ -680,8 +714,38 @@ extension SessionModel {
 
 /// The timeline. Its own view so that projection and session-list updates, which
 /// redraw `ConversationView`, do not re-diff every row.
-private struct TimelineList: View {
-    let model: SessionModel
+/// 空会话提示：一个 Bot / 群聊刚建好、还没聊过时，时间线是空的。
+/// 不解释的话用户看到的就是一整片空白 + 输入框，分不清是「还没说话」还是「卡住了」。
+struct EmptyChatHint: View {
+    let name: String?
+
+    /// 有名字就用名字，没有就退成通用说法。
+    private var line: String {
+        if let name, !name.isEmpty {
+            String(localized: "和 \(name) 还没有对话。在下面发一条消息开始。")
+        } else {
+            String(localized: "还没有对话。在下面发一条消息开始。")
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "bubble.left.and.bubble.right")
+                .font(.system(size: 34, weight: .light))
+                .foregroundStyle(Palette.secondary)
+            Text(line)
+                .font(.callout)
+                .foregroundStyle(Palette.secondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(3)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 40)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct TimelineList: View {    let model: SessionModel
     @Environment(\.botTimeline) private var bot
     @Environment(\.botComposer) private var botChat
     /// The last user message there was when a Bot page opened: the ones after it arrive as they are sent.
