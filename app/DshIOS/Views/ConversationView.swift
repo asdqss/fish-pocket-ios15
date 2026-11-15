@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 /// One conversation: its title and session menu in the top bar, the workbench on
@@ -19,6 +20,12 @@ struct ConversationView: View {
     @EnvironmentObject private var app: AppModel
     @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var model: SessionModel?
+    /// `SessionModel` 在 iOS 16 侧是 `ObservableObject`（上游是 iOS 17 的 `@Observable`）。
+    /// `@State` 存引用**不会**订阅它的 `objectWillChange`——真机表现就是：
+    /// `items` 收到 8 条、`loaded=1`，界面却一次都不重绘（时间线空白、发送按钮不变色、
+    /// 导出菜单读到空快照）。这个 holder 只有一个职责：订阅 `model` 并把变化转成
+    /// 一次 `objectWillChange`，让本视图跟着重算。放在 `.task` 里挂上。
+    @StateObject private var tick = SessionTick()
     @State private var context = ComposerContext()
     @State private var workbenchOpen = false
     /// `onChange(of:perform:)` 只给新值；判断「刚才那条是不是它」要自己记住上一个。
@@ -57,18 +64,14 @@ struct ConversationView: View {
     var body: some View {
         Group {
             if let model {
-                // 关键：`SessionModel` 在 iOS 16 侧是 `ObservableObject`（不是 iOS 17 的 `@Observable`）。
-                // `@State` 只给值类型和 `@Observable` 建订阅，对 `ObservableObject` 不会订阅
-                // `objectWillChange` —— 于是 `items` 收到了、`loaded=1`，界面却一次都不重绘：
-                // 时间线空白、发送按钮不变色、导出菜单读到的也是空快照。
-                // 这里换成 `SessionObserver`（持有 `@ObservedObject`），订阅才真正成立。
-                SessionObserver(model: model) { live in
-                    content(live)
-                }
+                content(model)
             } else {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity).background(Palette.background)
             }
         }
+        // iOS 16 侧 `SessionModel` 是 `ObservableObject`，`@State` 存它不会订阅。
+        // `tick` 把 model 的 objectWillChange 转出来，这里收下即完成订阅。
+        .onReceive(tick.objectWillChange) { _ in }
         .task {
             // A child opens by its parent's address, which the list knows.
             if app.sessions[sessionId] == nil { await app.refreshSessions() }
@@ -76,6 +79,7 @@ struct ConversationView: View {
             session.subagentAddress = app.subagentAddress(for: sessionId)
             session.modelCatalog = context
             model = session
+            tick.attach(session)
             session.start()
             await context.load(session)
         }
@@ -695,6 +699,25 @@ struct BubbleTint: Equatable {
     var text: Color
 }
 
+/// 单个订阅点：把 `SessionModel.objectWillChange` 转成本视图的一次刷新。
+/// 存在的理由见 `ConversationView.model` 上的注释——`@State` 对 `ObservableObject`
+/// 不建订阅，iOS 16 侧必须显式桥一下。
+@MainActor
+final class SessionTick: ObservableObject {
+    /// 只用来在 body 里被读一下，证明这个对象被订阅了；不参与任何布局。
+    let revision = 0
+    private var bag: AnyCancellable?
+    private(set) weak var model: SessionModel?
+
+    func attach(_ model: SessionModel?) {
+        guard self.model !== model else { return }
+        self.model = model
+        bag = model?.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }
+    }
+}
+
 /// 排障用的一行状态。单独成视图，避免把长插值塞进 `ConversationView.body`
 /// 让编译器类型推导超时（上游那种规模的 body 经不起再挂一个大表达式）。
 struct TimelineDiagnostic: View {
@@ -737,20 +760,6 @@ struct TimelineDiagnostic: View {
 }
 
 /// 把 `ObservableObject` 的订阅做扎实：`@ObservedObject` 在这里才真正挂上
-/// `objectWillChange`，外层用 `@State` 存的引用只会让视图「拿着」对象，
-/// 不会「跟着」对象刷新。
-struct SessionObserver<Content: View>: View {
-    @ObservedObject var model: SessionModel
-    private let make: (SessionModel) -> Content
-
-    init(model: SessionModel, @ViewBuilder content: @escaping (SessionModel) -> Content) {
-        self.model = model
-        self.make = content
-    }
-
-    var body: some View { make(model) }
-}
-
 /// The user's side of a chat, one look wherever a message of theirs shows.
 /// 上游 `UserBubbleStyle`，本地原先缺失——没有它，用户气泡不着色也不成形。
 private struct UserBubbleStyle: ViewModifier {
