@@ -6,7 +6,7 @@ import SwiftUI
 struct BotActivityLine: View {
     @EnvironmentObject private var app: AppModel
     let botId: String
-    let model: SessionModel
+    @ObservedObject var model: SessionModel
     @State private var arrived = false
     /// What the line shows. It follows `current` in an animation of its own, so the line's
     /// move down the page, as the reply above it grows, is not animated with it.

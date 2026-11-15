@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 /// another app or window as attachments, plain text and links as text. A drag ending
 /// on the input itself is the text field's own.
 struct ComposerDrop: ViewModifier {
-    let composer: ComposerModel
+    @ObservedObject var composer: ComposerModel
     /// False where this conversation takes no messages.
     let enabled: Bool
     @EnvironmentObject private var app: AppModel

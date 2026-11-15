@@ -5,7 +5,7 @@ import SwiftUI
 struct CredentialNotice: View {
     let id: String
     let problem: TurnFailure.CredentialProblem
-    let model: SessionModel
+    @ObservedObject var model: SessionModel
     @EnvironmentObject private var app: AppModel
     /// Some provider can answer now; nil until asked.
     @State private var ready: Bool?

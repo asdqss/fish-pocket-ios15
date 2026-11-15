@@ -136,7 +136,10 @@ final class ComposerModel: ObservableObject {
     let sessionId: String
     let app: AppModel
 
-    var text: String { didSet { if text != oldValue { persistDraft() } } }
+    /// `@Published` 不能省：iOS 16 侧本类型是 `ObservableObject`（上游是 `@Observable`，
+    /// 读写自动追踪）。少了它，`text` 变了不会发 `objectWillChange`，
+    /// 依赖 `text` 的 `nothingToSend` 也就不会重算——发送按钮一直是灰的。
+    @Published var text: String { didSet { if text != oldValue { persistDraft() } } }
     @Published private(set) var attachments: [DraftAttachment] = []
     @Published private(set) var pending: [PendingSubmission] = []
     /// A command line being executed: sending waits for it (C-87).

@@ -209,7 +209,10 @@ struct ModelSearchSheet: View {
 /// modes). The main button is send / queue or steer (long press: the other) /
 /// stop. Typing `/` or `@` opens the candidate panel above it.
 struct ComposerView: View {
-    let model: SessionModel
+    /// `@ObservedObject`：iOS 16 侧 `SessionModel` 从 `@Observable` 降级成 `ObservableObject`，
+    /// 只写 `let` 的话 SwiftUI 不会订阅它的 `objectWillChange`——`composer.text` 变了、
+    /// `nothingToSend` 变了，发送按钮却不变色，就是一例。
+    @ObservedObject var model: SessionModel
     let context: ComposerContext
     /// Text the shell put here (创建你的插件…): added to the draft, not sent.
     var pendingDraft: String?
@@ -250,6 +253,7 @@ struct ComposerView: View {
     @FocusState private var focused: Bool
 
     private var composer: ComposerModel { model.composer }
+
 
     var body: some View {
         let trigger = activeTrigger

@@ -57,7 +57,14 @@ struct ConversationView: View {
     var body: some View {
         Group {
             if let model {
-                content(model)
+                // 关键：`SessionModel` 在 iOS 16 侧是 `ObservableObject`（不是 iOS 17 的 `@Observable`）。
+                // `@State` 只给值类型和 `@Observable` 建订阅，对 `ObservableObject` 不会订阅
+                // `objectWillChange` —— 于是 `items` 收到了、`loaded=1`，界面却一次都不重绘：
+                // 时间线空白、发送按钮不变色、导出菜单读到的也是空快照。
+                // 这里换成 `SessionObserver`（持有 `@ObservedObject`），订阅才真正成立。
+                SessionObserver(model: model) { live in
+                    content(live)
+                }
             } else {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity).background(Palette.background)
             }
@@ -235,7 +242,7 @@ struct ConversationView: View {
         // 排障用：真机上导出日志很麻烦，先让界面把时间线的真实状态说出来。
         // 一行极小字，不挡任何交互；确认根因后删掉这个 overlay。
         .overlay(alignment: .topLeading) {
-            Text("items=\(model.items.count) live=\(model.live.count) loaded=\(model.loaded ? 1 : 0) run=\(model.running ? 1 : 0) more=\(model.hasMoreHistory ? 1 : 0)")
+            Text("items=\(model.items.count) live=\(model.live.count) loaded=\(model.loaded ? 1 : 0) run=\(model.running ? 1 : 0) more=\(model.hasMoreHistory ? 1 : 0) shown=\((bot.map { b in model.items.filter { !b.hides($0) } } ?? model.items).count) hidden=\(bot.map { b in model.items.filter { b.hides($0) }.count } ?? -1) blank=\(blank ? 1 : 0)")
                 .font(.system(size: 9, design: .monospaced))
                 .foregroundStyle(Palette.secondary.opacity(0.55))
                 .padding(.leading, 6)
@@ -693,6 +700,21 @@ struct BubbleTint: Equatable {
     var text: Color
 }
 
+/// 把 `ObservableObject` 的订阅做扎实：`@ObservedObject` 在这里才真正挂上
+/// `objectWillChange`，外层用 `@State` 存的引用只会让视图「拿着」对象，
+/// 不会「跟着」对象刷新。
+struct SessionObserver<Content: View>: View {
+    @ObservedObject var model: SessionModel
+    private let make: (SessionModel) -> Content
+
+    init(model: SessionModel, @ViewBuilder content: @escaping (SessionModel) -> Content) {
+        self.model = model
+        self.make = content
+    }
+
+    var body: some View { make(model) }
+}
+
 /// The user's side of a chat, one look wherever a message of theirs shows.
 /// 上游 `UserBubbleStyle`，本地原先缺失——没有它，用户气泡不着色也不成形。
 private struct UserBubbleStyle: ViewModifier {
@@ -904,7 +926,7 @@ private struct TimelineList: View {    let model: SessionModel
 /// The turn being worked on, with the streamed attempt appended. Only this view
 /// and `LiveSection` observe `live`, so a chunk does not redraw the rest of the timeline.
 private struct ActiveTurn: View {
-    let model: SessionModel
+    @ObservedObject var model: SessionModel
     let turn: Int
     let blocks: [AssistantBlock]
     let startedAt: Date?
@@ -917,7 +939,7 @@ private struct ActiveTurn: View {
 /// A running session before its turn has a durable message: the streamed attempt,
 /// or just the step line (「正在分析请求」).
 private struct LiveSection: View {
-    let model: SessionModel
+    @ObservedObject var model: SessionModel
     @Environment(\.botComposer) private var botChat
 
     var body: some View {
@@ -931,7 +953,7 @@ private struct LiveSection: View {
 /// Rows compare by value: rebuilding one with an unchanged item is skipped.
 private struct TimelineRow: View, Equatable {
     let item: TimelineItem
-    let model: SessionModel
+    @ObservedObject var model: SessionModel
     let isLast: Bool
     let inProgress: Bool
     let prompt: String?
@@ -1025,7 +1047,7 @@ private struct TurnJumpSheet: View {
 /// a spinner meanwhile. Not `onAppear`: this stack is not lazy, so that fires on the first
 /// layout wherever the reader is, and every page loaded would load the next.
 private struct LoadOlderTrigger: View {
-    let model: SessionModel
+    @ObservedObject var model: SessionModel
     @Environment(\.timelineScroll) private var scroll
     @State private var inView = false
 
@@ -1054,7 +1076,7 @@ private struct LoadOlderTrigger: View {
 
 /// C-46. The official hint tells the user to send 「继续」; on a phone that is one button.
 private struct MaxTokensNotice: View {
-    let model: SessionModel
+    @ObservedObject var model: SessionModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -1077,7 +1099,7 @@ private struct MaxTokensNotice: View {
 private struct UserBubble: View {
     let text: String
     let attachments: [Attachment]
-    let model: SessionModel
+    @ObservedObject var model: SessionModel
     /// The chat app the message came in over (a Bot reached from one), by name.
     var via: String?
     /// Just sent, in a Bot page: it rises from the composer into place.

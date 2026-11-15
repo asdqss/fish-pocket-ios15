@@ -307,7 +307,9 @@ struct BotMemoryNotice: View {
 struct BotChatMenu: View {
     @EnvironmentObject private var app: AppModel
     let target: BotComposer
-    let model: SessionModel
+    /// `@ObservedObject`：导出内容取自 `model.items`，不订阅的话菜单拿的是构建那一刻的
+    /// 旧快照（往往是空的），点「导出为 Markdown」就只得到一个空文件。
+    @ObservedObject var model: SessionModel
 
     var body: some View {
         let team = app.botTeam
