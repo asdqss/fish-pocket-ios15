@@ -107,6 +107,21 @@ struct ConversationView: View {
     /// 跳转到某一轮后等一帧再滚（120 ms）。用具名常量，别内联进 body 的闭包里。
     private static let jumpSettleNanos: UInt64 = 120_000_000
 
+    /// 跳出「跳到某一轮」面板后的滚动。抽成方法是为了让 `body` 里只剩一行调用：
+    /// 这段闭包内联在 `ConversationView.body` 的 `.sheet` 里会让整个 body
+    /// 的类型推导超时（编译器报 `unable to type-check in reasonable time`）。
+    @ViewBuilder
+    private func turnJumpSheet(model: SessionModel, proxy: ScrollViewProxy) -> some View {
+        TurnJumpSheet(outline: model.turnOutline) { entry in
+            showTurns = false
+            Task { @MainActor in
+                guard let anchor = await model.anchor(of: entry) else { return }
+                try? await Task.sleep(nanoseconds: Self.jumpSettleNanos)
+                proxy.scrollTo(anchor, anchor: .top)
+            }
+        }
+    }
+
     /// On the next pass, once the new rows have their heights.
     private func scrollToBottom(_ proxy: ScrollViewProxy, animated: Bool = true) {
         Task { @MainActor in
@@ -227,16 +242,7 @@ struct ConversationView: View {
                 .animation(.snappy(duration: 0.18), value: atBottom)
             }
             .sheet(isPresented: $showTurns) {
-                TurnJumpSheet(outline: model.turnOutline) { entry in
-                    showTurns = false
-                    Task { @MainActor in
-                        guard let anchor = await model.anchor(of: entry) else { return }
-                        // 拆成具名常量：`UInt64((120) * 1_000_000)` 内联在这层闭包里
-                        // 会把整个 body 的类型推导拖到超时（上游没触发只是运气）。
-                        try? await Task.sleep(nanoseconds: Self.jumpSettleNanos)
-                        proxy.scrollTo(anchor, anchor: .top)
-                    }
-                }
+                turnJumpSheet(model: model, proxy: proxy)
             }
         }
         .background(Palette.background)
