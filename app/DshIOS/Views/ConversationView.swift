@@ -167,16 +167,12 @@ struct ConversationView: View {
                     .modifier(LinkOpening())
                 Color.clear.frame(height: 1).id(Self.bottomId)
             }
-            // 上游在首读未回时盖一层骨架（`ConversationLoading`），空白页会让人以为卡住。
-            // 本地没有那个文件，用等价的简短占位；`loaded` 之后自然消失。
+            // 上游在首读未回时盖一层骨架（`ConversationLoading`）：空白页会让人以为卡住。
+            // 这段上游原本就有，本地 iOS 16 侧漏了文件，现已补齐。
             .overlay {
                 ZStack {
                     if !model.loaded && app.sessions[sessionId]?.blank != true {
-                        ProgressView()
-                            .controlSize(.regular)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .background(Palette.background)
-                            .transition(.opacity)
+                        ConversationLoading().transition(.opacity)
                     }
                 }
                 .animation(.easeOut(duration: 0.2), value: model.loaded)
@@ -685,6 +681,34 @@ struct TimelineScroll {
 
 extension EnvironmentValues {
     @Entry var timelineScroll = TimelineScroll()
+    /// 用户自己的消息在 Bot 聊天里的着色；nil 保持普通气泡。
+    /// 上游同名字段，本地 iOS 16 侧原先整段缺失，`UserBubbleStyle` 因此无从取值。
+    @Entry var userBubbleTint: BubbleTint?
+}
+
+/// A bubble's fill and the text that reads on it.
+/// 上游 `BubbleTint`，本地原先缺失。
+struct BubbleTint: Equatable {
+    var fill: Color
+    var text: Color
+}
+
+/// The user's side of a chat, one look wherever a message of theirs shows.
+/// 上游 `UserBubbleStyle`，本地原先缺失——没有它，用户气泡不着色也不成形。
+private struct UserBubbleStyle: ViewModifier {
+    @Environment(\.userBubbleTint) private var tint
+
+    func body(content: Content) -> some View {
+        content
+            // `.primary` is the inherited style: a plain bubble stays as it was.
+            .foregroundStyle(tint.map { AnyShapeStyle($0.text) } ?? AnyShapeStyle(.primary))
+            .background(tint?.fill ?? Palette.bubble, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+}
+
+extension View {
+    /// 上游同名修饰符：用户消息统一走这一处，Bot 聊天里按 Bot 颜色着色。
+    func userBubble() -> some View { modifier(UserBubbleStyle()) }
 }
 
 /// Actions a reply offers below it, provided by the conversation.
@@ -1098,7 +1122,7 @@ private struct UserBubble: View {
                 .lineSpacing(3)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(Palette.bubble, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .userBubble()
                 .contextMenu {
                     Button { copyToPasteboard(text) } label: { Label("复制", systemImage: "doc.on.doc") }
                     // Masked text stays masked until the reader asks: this would show it whole.
