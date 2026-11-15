@@ -988,7 +988,10 @@ private struct LiveSection: View {
 /// Rows compare by value: rebuilding one with an unchanged item is skipped.
 private struct TimelineRow: View, Equatable {
     let item: TimelineItem
-    @ObservedObject var model: SessionModel
+    /// 这里必须是 `let`：`Equatable` + `@ObservedObject` 的组合会让
+    /// `ConversationView.body` 的泛型推导超时。订阅由上层的 `TimelineList`
+    /// 负责（它也带 `.equatable()`，行内容随之刷新）。
+    let model: SessionModel
     let isLast: Bool
     let inProgress: Bool
     let prompt: String?
