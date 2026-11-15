@@ -92,7 +92,7 @@ struct ConversationView: View {
             case "workbench": openWorkbench(.terminal)
             case "approval": demoApproval = PendingApproval(id: "demo", toolName: "bash", callId: nil, reason: "允许本次操作使用 danger-full-access 权限：当前处于 workspace-write 模式，写不到工作区以外。这条命令会删除 build/ 下约 1.4 GB 的文件，再重新下载依赖，失败时不会自动恢复，需要手动重新构建一次才能继续。")
             case "timeline":
-                try? await Task.sleep(nanoseconds: UInt64((2) * 1_000_000_000))
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
                 model?.debugLoadFixture(TimelineFixture.events)
             default: break
             }
@@ -104,6 +104,8 @@ struct ConversationView: View {
     }
 
     private static let bottomId = "timeline-bottom"
+    /// 跳转到某一轮后等一帧再滚（120 ms）。用具名常量，别内联进 body 的闭包里。
+    private static let jumpSettleNanos: UInt64 = 120_000_000
 
     /// On the next pass, once the new rows have their heights.
     private func scrollToBottom(_ proxy: ScrollViewProxy, animated: Bool = true) {
@@ -186,7 +188,7 @@ struct ConversationView: View {
             .environment(\.timelineScroll, TimelineScroll(keep: { id in
                 Task { @MainActor in
                     // The rows above have to be laid out before their height can be kept.
-                    try? await Task.sleep(nanoseconds: UInt64((60) * 1_000_000))
+                    try? await Task.sleep(nanoseconds: 60_000_000)
                     proxy.scrollTo(id, anchor: .top)
                 }
             }, top: timelineTop))
@@ -227,11 +229,12 @@ struct ConversationView: View {
             .sheet(isPresented: $showTurns) {
                 TurnJumpSheet(outline: model.turnOutline) { entry in
                     showTurns = false
-                    Task {
-                        if let anchor = await model.anchor(of: entry) {
-                            try? await Task.sleep(nanoseconds: UInt64((120) * 1_000_000))
-                            proxy.scrollTo(anchor, anchor: .top)
-                        }
+                    Task { @MainActor in
+                        guard let anchor = await model.anchor(of: entry) else { return }
+                        // 拆成具名常量：`UInt64((120) * 1_000_000)` 内联在这层闭包里
+                        // 会把整个 body 的类型推导拖到超时（上游没触发只是运气）。
+                        try? await Task.sleep(nanoseconds: Self.jumpSettleNanos)
+                        proxy.scrollTo(anchor, anchor: .top)
                     }
                 }
             }
@@ -1085,7 +1088,7 @@ private struct LoadOlderTrigger: View {
             .task(id: "\(inView)-\(model.items.first?.id ?? "")") {
                 guard inView else { return }
                 // The first layout has this in view until the bottom anchor takes hold.
-                try? await Task.sleep(nanoseconds: UInt64((300) * 1_000_000))
+                try? await Task.sleep(nanoseconds: 300_000_000)
                 guard !Task.isCancelled else { return }
                 let anchor = model.items.first?.id
                 // Its own task: scrolling on must not cancel the request halfway.
