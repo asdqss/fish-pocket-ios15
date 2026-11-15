@@ -25,7 +25,6 @@ struct ConversationView: View {
     /// `items` 收到 8 条、`loaded=1`，界面却一次都不重绘（时间线空白、发送按钮不变色、
     /// 导出菜单读到空快照）。这个 holder 只有一个职责：订阅 `model` 并把变化转成
     /// 一次 `objectWillChange`，让本视图跟着重算。放在 `.task` 里挂上。
-    @StateObject private var tick = SessionTick()
     @State private var context = ComposerContext()
     @State private var workbenchOpen = false
     /// `onChange(of:perform:)` 只给新值；判断「刚才那条是不是它」要自己记住上一个。
@@ -69,9 +68,6 @@ struct ConversationView: View {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity).background(Palette.background)
             }
         }
-        // iOS 16 侧 `SessionModel` 是 `ObservableObject`，`@State` 存它不会订阅。
-        // `tick` 把 model 的 objectWillChange 转出来，这里收下即完成订阅。
-        .onReceive(tick.objectWillChange) { _ in }
         .task {
             // A child opens by its parent's address, which the list knows.
             if app.sessions[sessionId] == nil { await app.refreshSessions() }
@@ -79,7 +75,6 @@ struct ConversationView: View {
             session.subagentAddress = app.subagentAddress(for: sessionId)
             session.modelCatalog = context
             model = session
-            tick.attach(session)
             session.start()
             await context.load(session)
         }
@@ -699,25 +694,6 @@ struct BubbleTint: Equatable {
     var text: Color
 }
 
-/// 单个订阅点：把 `SessionModel.objectWillChange` 转成本视图的一次刷新。
-/// 存在的理由见 `ConversationView.model` 上的注释——`@State` 对 `ObservableObject`
-/// 不建订阅，iOS 16 侧必须显式桥一下。
-@MainActor
-final class SessionTick: ObservableObject {
-    /// 只用来在 body 里被读一下，证明这个对象被订阅了；不参与任何布局。
-    let revision = 0
-    private var bag: AnyCancellable?
-    private(set) weak var model: SessionModel?
-
-    func attach(_ model: SessionModel?) {
-        guard self.model !== model else { return }
-        self.model = model
-        bag = model?.objectWillChange.sink { [weak self] _ in
-            self?.objectWillChange.send()
-        }
-    }
-}
-
 /// 排障用的一行状态。单独成视图，避免把长插值塞进 `ConversationView.body`
 /// 让编译器类型推导超时（上游那种规模的 body 经不起再挂一个大表达式）。
 struct TimelineDiagnostic: View {
@@ -887,7 +863,11 @@ struct EmptyChatHint: View {
     }
 }
 
-private struct TimelineList: View {    let model: SessionModel
+private struct TimelineList: View {
+    /// `@ObservedObject`：这里是整条时间线的入口。iOS 16 侧 `SessionModel` 是
+    /// `ObservableObject`，`let` 不订阅 `objectWillChange`——`items` 收到 8 条
+    /// 界面也不重绘，真机就是整页空白。
+    @ObservedObject var model: SessionModel
     @Environment(\.botTimeline) private var bot
     @Environment(\.botComposer) private var botChat
     /// The last user message there was when a Bot page opened: the ones after it arrive as they are sent.
