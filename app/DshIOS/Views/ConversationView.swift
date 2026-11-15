@@ -242,12 +242,7 @@ struct ConversationView: View {
         // 排障用：真机上导出日志很麻烦，先让界面把时间线的真实状态说出来。
         // 一行极小字，不挡任何交互；确认根因后删掉这个 overlay。
         .overlay(alignment: .topLeading) {
-            Text("items=\(model.items.count) live=\(model.live.count) loaded=\(model.loaded ? 1 : 0) run=\(model.running ? 1 : 0) more=\(model.hasMoreHistory ? 1 : 0) shown=\((bot.map { b in model.items.filter { !b.hides($0) } } ?? model.items).count) hidden=\(bot.map { b in model.items.filter { b.hides($0) }.count } ?? -1) blank=\(blank ? 1 : 0)")
-                .font(.system(size: 9, design: .monospaced))
-                .foregroundStyle(Palette.secondary.opacity(0.55))
-                .padding(.leading, 6)
-                .padding(.top, 2)
-                .allowsHitTesting(false)
+            TimelineDiagnostic(model: model, bot: bot, blank: blank)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
@@ -698,6 +693,47 @@ extension EnvironmentValues {
 struct BubbleTint: Equatable {
     var fill: Color
     var text: Color
+}
+
+/// 排障用的一行状态。单独成视图，避免把长插值塞进 `ConversationView.body`
+/// 让编译器类型推导超时（上游那种规模的 body 经不起再挂一个大表达式）。
+struct TimelineDiagnostic: View {
+    @ObservedObject var model: SessionModel
+    let bot: BotTimeline?
+    let blank: Bool
+
+    private var shownCount: Int {
+        guard let bot else { return model.items.count }
+        return model.items.filter { !bot.hides($0) }.count
+    }
+
+    private var hiddenCount: Int {
+        guard let bot else { return -1 }
+        return model.items.count - shownCount
+    }
+
+    var body: some View {
+        Text(line)
+            .font(.system(size: 9, design: .monospaced))
+            .foregroundStyle(Palette.secondary.opacity(0.55))
+            .padding(.leading, 6)
+            .padding(.top, 2)
+            .allowsHitTesting(false)
+    }
+
+    private var line: String {
+        let parts: [String] = [
+            "items=\(model.items.count)",
+            "live=\(model.live.count)",
+            "loaded=\(model.loaded ? 1 : 0)",
+            "run=\(model.running ? 1 : 0)",
+            "more=\(model.hasMoreHistory ? 1 : 0)",
+            "shown=\(shownCount)",
+            "hidden=\(hiddenCount)",
+            "blank=\(blank ? 1 : 0)",
+        ]
+        return parts.joined(separator: " ")
+    }
 }
 
 /// 把 `ObservableObject` 的订阅做扎实：`@ObservedObject` 在这里才真正挂上
